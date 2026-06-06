@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply p-0 m-0 box-border font-Montserrat bg-[#F0FFFA];
+  }
+
+  /* chrome */
+  .sidebar::-webkit-scrollbar {
+    width: 0px;
+  }
+
+  /* firefox */
+  @supports (scrollbar-color: grey transparent) {
+    /* * {
+      scrollbar-color: grey transparent;
+      scrollbar-width: thin;
+    } */
+    .sidebar {
+      scrollbar-width: none;
+    }
+  }
+}

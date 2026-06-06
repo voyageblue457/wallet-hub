@@ -1,0 +1,42 @@
+export const infoData = [
+  {
+    serial: "1",
+    website: "www.asdf.com",
+    email: "email@email.com",
+    password: "1234",
+    verify_code: "555",
+    date_time: "2022-11-02 17:33:46",
+  },
+  {
+    serial: "2",
+    website: "www.asdf.com",
+    email: "email@email.com",
+    password: "1234",
+    verify_code: "555",
+    date_time: "2022-11-02 17:33:46",
+  },
+  {
+    serial: "3",
+    website: "www.asdf.com",
+    email: "email@email.com",
+    password: "1234",
+    verify_code: "555",
+    date_time: "2022-11-02 17:33:46",
+  },
+  {
+    serial: "4",
+    website: "www.asdf.com",
+    email: "email@email.com",
+    password: "1234",
+    verify_code: "555",
+    date_time: "2022-11-02 17:33:46",
+  },
+  {
+    serial: "5",
+    website: "www.asdf.com",
+    email: "email@email.com",
+    password: "1234",
+    verify_code: "555",
+    date_time: "2022-11-02 17:33:46",
+  },
+];
