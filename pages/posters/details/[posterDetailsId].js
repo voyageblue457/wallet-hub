@@ -26,19 +26,24 @@ function PosterDetailsPage() {
 
   let totalAmount = 0;
   let pendingAmount = 0;
+  let paidAmount = 0;
 
   if (details && Array.isArray(details)) {
     details.forEach((item) => {
       const amt = parseFloat(item.amount);
       if (!isNaN(amt)) {
         totalAmount += amt;
-        const statusVal = (item.status || "pending").toLowerCase();
-        if (statusVal === "pending") {
+
+        if (item.status === true || item.status === "true") {
+          paidAmount += amt;
+        } else {
           pendingAmount += amt;
         }
       }
     });
   }
+
+  const remainingAmount = totalAmount - paidAmount;
 
   // console.log("poster data _doc:", _doc);
   // console.log("poster id", posterId);
@@ -94,13 +99,19 @@ function PosterDetailsPage() {
                   </span>
                 </p>
                 <p className="grid grid-cols-2">
-                  <span>Total Paid Amount:</span> <span>$0.00</span>
+                  <span>Total Paid Amount:</span>{" "}
+                  <span className="font-bold text-green-600">
+                    ${paidAmount.toFixed(2)}
+                  </span>
                 </p>
                 <p className="grid grid-cols-2">
                   <span>Total Withdrawn:</span> <span>$0.00</span>
                 </p>
                 <p className="grid grid-cols-2">
-                  <span>Remaining Amount:</span> <span>$0.00</span>
+                  <span>Remaining Amount:</span>{" "}
+                  <span className="font-bold text-cyan-600">
+                    ${remainingAmount.toFixed(2)}
+                  </span>
                 </p>
               </div>
 
