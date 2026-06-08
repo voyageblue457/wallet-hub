@@ -83,6 +83,7 @@ export const config = {
     "/collections",
     "/cash-app",
     "/qr-code",
+    "/create-qr",
     "/posters/:path*",
   ],
 };

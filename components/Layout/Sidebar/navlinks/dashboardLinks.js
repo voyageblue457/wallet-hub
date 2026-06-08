@@ -3,6 +3,7 @@ import {
   FaEnvelope,
   FaUsers,
   FaGlobe,
+  FaQrcode,
   FaDollarSign,
 } from "react-icons/fa";
 
@@ -37,4 +38,9 @@ export const dashboardLinks = [
     link: "/withdraw",
     icon: <FaGlobe />,
   },
+  {
+    name: "Create QR",
+    link: "/create-qr",
+    icon: <FaQrcode />,
+  }
 ];
