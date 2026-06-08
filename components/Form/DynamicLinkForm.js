@@ -64,7 +64,65 @@ function DynamicLinkForm({ id }) {
     const container = document.getElementById('qrcode-container');
     const canvas = container ? container.querySelector('canvas') : null;
     if (canvas) {
-      const pngUrl = canvas.toDataURL('image/png');
+      // Create a temporary canvas so we don't modify the displayed canvas in DOM
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const ctx = tempCanvas.getContext("2d");
+
+      // Draw the QR Code image
+      ctx.drawImage(canvas, 0, 0);
+
+      // Draw the Cash App central logo overlay (Green rounded square with white border and $ symbol)
+      const qrSize = canvas.width;
+      const logoSize = qrSize * 0.18; // ~18% of QR code width (safe for error correction level H)
+      const x = (qrSize - logoSize) / 2;
+      const y = (qrSize - logoSize) / 2;
+
+      // Draw rounded rectangle for white border boundary
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath();
+      const radiusWhite = logoSize * 0.28;
+      const wWhite = logoSize + (qrSize * 0.02);
+      const hWhite = logoSize + (qrSize * 0.02);
+      const xWhite = x - (qrSize * 0.01);
+      const yWhite = y - (qrSize * 0.01);
+      ctx.moveTo(xWhite + radiusWhite, yWhite);
+      ctx.lineTo(xWhite + wWhite - radiusWhite, yWhite);
+      ctx.quadraticCurveTo(xWhite + wWhite, yWhite, xWhite + wWhite, yWhite + radiusWhite);
+      ctx.lineTo(xWhite + wWhite, yWhite + hWhite - radiusWhite);
+      ctx.quadraticCurveTo(xWhite + wWhite, yWhite + hWhite, xWhite + wWhite - radiusWhite, yWhite + hWhite);
+      ctx.lineTo(xWhite + radiusWhite, yWhite + hWhite);
+      ctx.quadraticCurveTo(xWhite, yWhite + hWhite, xWhite, yWhite + hWhite - radiusWhite);
+      ctx.lineTo(xWhite, yWhite + radiusWhite);
+      ctx.quadraticCurveTo(xWhite, yWhite, xWhite + radiusWhite, yWhite);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw rounded rectangle for green square
+      ctx.fillStyle = "#00D632";
+      ctx.beginPath();
+      const radiusGreen = logoSize * 0.24;
+      ctx.moveTo(x + radiusGreen, y);
+      ctx.lineTo(x + logoSize - radiusGreen, y);
+      ctx.quadraticCurveTo(x + logoSize, y, x + logoSize, y + radiusGreen);
+      ctx.lineTo(x + logoSize, y + logoSize - radiusGreen);
+      ctx.quadraticCurveTo(x + logoSize, y + logoSize, x + logoSize - radiusGreen, y + logoSize);
+      ctx.lineTo(x + radiusGreen, y + logoSize);
+      ctx.quadraticCurveTo(x, y + logoSize, x, y + logoSize - radiusGreen);
+      ctx.lineTo(x, y + radiusGreen);
+      ctx.quadraticCurveTo(x, y, x + radiusGreen, y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw white '$' symbol in the center
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `bold ${Math.round(logoSize * 0.64)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("$", qrSize / 2, qrSize / 2);
+
+      const pngUrl = tempCanvas.toDataURL('image/png');
       const downloadLink = document.createElement('a');
       downloadLink.href = pngUrl;
       const lastName = getLastName(modalLink?.linkName) || "qrcode";
@@ -337,22 +395,21 @@ function DynamicLinkForm({ id }) {
             </h3>
 
             {/* QR Code container */}
-            <div id="qrcode-container" className="p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-inner flex justify-center items-center">
-              <Canvas
-                text={modalLink.linkName && modalLink.linkName.startsWith("http") ? modalLink.linkName : `https://${modalLink.linkName || ""}`}
-                options={{
-                  errorCorrectionLevel: 'Q',
-                  margin: 3,
-                  scale: 4,
-                  width: 260,
-                }}
-                logo={{
-                  src: '/cash-logo.svg',
-                  options: {
-                    width: 45,
-                  }
-                }}
-              />
+            <div className="relative p-4 bg-white rounded-2xl border border-gray-100 shadow-md flex justify-center items-center select-all">
+              <div id="qrcode-container" className="flex justify-center items-center">
+                <Canvas
+                  text={modalLink.linkName && modalLink.linkName.startsWith("http") ? modalLink.linkName : `https://${modalLink.linkName || ""}`}
+                  options={{
+                    errorCorrectionLevel: 'H',
+                    margin: 3,
+                    scale: 4,
+                    width: 320,
+                  }}
+                />
+              </div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#00D632] w-14 h-14 rounded-[18px] flex items-center justify-center shadow-lg border-4 border-white">
+                <span className="text-white font-black text-2xl select-none">$</span>
+              </div>
             </div>
 
             {/* Buttons */}
