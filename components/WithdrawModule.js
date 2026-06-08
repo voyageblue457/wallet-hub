@@ -81,30 +81,61 @@ const WithdrawModule = ({ id, admin }) => {
     <div className="mb-8">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
-          <p className="text-gray-500 text-sm font-medium">Total Amount</p>
-          <p className="text-2xl font-bold text-gray-800">${(summary.paidAmount || 0).toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
-          <p className="text-gray-500 text-sm font-medium">Paid Amount (Earned)</p>
-          <p className="text-2xl font-bold text-green-600">${(summary.paidAmount || 0).toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
-          <p className="text-gray-500 text-sm font-medium">Available to Withdraw</p>
-          <p className="text-2xl font-bold text-blue-600">${(summary.availableAmount || 0).toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
-          <p className="text-gray-500 text-sm font-medium">Pending Withdraw</p>
-          <p className="text-2xl font-bold text-yellow-600">${(summary.pendingWithdraw || 0).toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
-          <p className="text-gray-500 text-sm font-medium">Total Withdrawn</p>
-          <p className="text-2xl font-bold text-emerald-600">${(summary.totalWithdrawn || 0).toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
-          <p className="text-gray-500 text-sm font-medium">Last Withdraw</p>
-          <p className="text-2xl font-bold text-gray-700">${(summary.lastWithdraw || 0).toFixed(2)}</p>
-        </div>
+        {admin ? (
+          <>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">Platform Total Earning</p>
+              <p className="text-2xl font-bold text-green-600">${(summary.paidAmount || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">My Manual Earning</p>
+              <p className="text-2xl font-bold text-blue-600">${(summary.adminManualPaidAmount || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">Net Profit (Available)</p>
+              <p className="text-2xl font-bold text-emerald-600">${(summary.availableAmount || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">Pending Poster Payouts</p>
+              <p className="text-2xl font-bold text-yellow-600">${(summary.pendingWithdraw || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">Total Poster Payouts</p>
+              <p className="text-2xl font-bold text-gray-700">${(summary.totalWithdrawn || 0).toFixed(2)}</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">Total Earned</p>
+              <p className="text-2xl font-bold text-green-600">${(summary.paidAmount || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">My Manual Earning</p>
+              <p className="text-2xl font-bold text-blue-600">${(summary.manualPaidAmount || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">My Auto Earning</p>
+              <p className="text-2xl font-bold text-indigo-600">${(summary.autoPaidAmount || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">Available to Withdraw</p>
+              <p className="text-2xl font-bold text-emerald-600">${(summary.availableAmount || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">Pending Withdraw</p>
+              <p className="text-2xl font-bold text-yellow-600">${(summary.pendingWithdraw || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">Total Withdrawn</p>
+              <p className="text-2xl font-bold text-gray-700">${(summary.totalWithdrawn || 0).toFixed(2)}</p>
+            </div>
+            <div className="bg-white p-5 rounded-lg shadow border border-gray-100">
+              <p className="text-gray-500 text-sm font-medium">Last Withdraw</p>
+              <p className="text-2xl font-bold text-gray-500">${(summary.lastWithdraw || 0).toFixed(2)}</p>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

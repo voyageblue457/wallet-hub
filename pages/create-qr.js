@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { FaQrcode, FaDollarSign, FaCopy, FaCheck } from "react-icons/fa";
+import { FaQrcode, FaDollarSign, FaCopy, FaCheck, FaDownload } from "react-icons/fa";
 import { MdOutlineClose } from "react-icons/md";
 import Loader from "../components/common/Loader";
 import Table from "../components/Table";
@@ -142,7 +142,7 @@ export default function CreateQRPage() {
   const [showMore, setShowMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [generatedQR, setGeneratedQR] = useState(null);
-  
+
   const [checkingIds, setCheckingIds] = useState({});
   const [selectedPosterFilter, setSelectedPosterFilter] = useState("all");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("all");
@@ -163,6 +163,86 @@ export default function CreateQRPage() {
 
   const handleAmountClick = (val) => {
     setAmount(val.toString());
+  };
+
+  const handleDownloadQR = (invoice, amountVal) => {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&ecc=H&data=${encodeURIComponent(`https://cash.app/launch/lightning/${invoice}`)}`;
+    toast.info("Preparing QR Code image...");
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 600;
+      canvas.height = 600;
+      const ctx = canvas.getContext("2d");
+
+      // Draw the QR Code image
+      ctx.drawImage(img, 0, 0, 600, 600);
+
+      // Draw the Cash App central logo overlay (Green rounded square with white border and $ symbol)
+      const logoSize = 100;
+      const x = (600 - logoSize) / 2;
+      const y = (600 - logoSize) / 2;
+
+      // Draw rounded rectangle for white border
+      ctx.fillStyle = "#FFFFFF";
+      ctx.beginPath();
+      const radiusWhite = 28;
+      const wWhite = logoSize + 12;
+      const hWhite = logoSize + 12;
+      const xWhite = x - 6;
+      const yWhite = y - 6;
+      ctx.moveTo(xWhite + radiusWhite, yWhite);
+      ctx.lineTo(xWhite + wWhite - radiusWhite, yWhite);
+      ctx.quadraticCurveTo(xWhite + wWhite, yWhite, xWhite + wWhite, yWhite + radiusWhite);
+      ctx.lineTo(xWhite + wWhite, yWhite + hWhite - radiusWhite);
+      ctx.quadraticCurveTo(xWhite + wWhite, yWhite + hWhite, xWhite + wWhite - radiusWhite, yWhite + hWhite);
+      ctx.lineTo(xWhite + radiusWhite, yWhite + hWhite);
+      ctx.quadraticCurveTo(xWhite, yWhite + hWhite, xWhite, yWhite + hWhite - radiusWhite);
+      ctx.lineTo(xWhite, yWhite + radiusWhite);
+      ctx.quadraticCurveTo(xWhite, yWhite, xWhite + radiusWhite, yWhite);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw rounded rectangle for green square
+      ctx.fillStyle = "#00D632";
+      ctx.beginPath();
+      const radiusGreen = 24;
+      ctx.moveTo(x + radiusGreen, y);
+      ctx.lineTo(x + logoSize - radiusGreen, y);
+      ctx.quadraticCurveTo(x + logoSize, y, x + logoSize, y + radiusGreen);
+      ctx.lineTo(x + logoSize, y + logoSize - radiusGreen);
+      ctx.quadraticCurveTo(x + logoSize, y + logoSize, x + logoSize - radiusGreen, y + logoSize);
+      ctx.lineTo(x + radiusGreen, y + logoSize);
+      ctx.quadraticCurveTo(x, y + logoSize, x, y + logoSize - radiusGreen);
+      ctx.lineTo(x, y + radiusGreen);
+      ctx.quadraticCurveTo(x, y, x + radiusGreen, y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw white '$' symbol in the center
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold 64px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("$", 300, 300);
+
+      // Trigger download
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `qr-payment-${amountVal || "code"}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("QR Code downloaded successfully!");
+    };
+    img.onerror = () => {
+      toast.error("Failed to load QR image for download. Please try again.");
+    };
+    img.src = qrUrl;
   };
 
   const handleGenerateQR = async (e) => {
@@ -289,7 +369,7 @@ export default function CreateQRPage() {
         {/* Left Side: Create Form */}
         <div className="w-full xl:max-w-[480px] bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-gray-100">
           <h2 className="text-xl font-bold text-gray-900 mb-6 font-Montserrat">Create New QR Payment</h2>
-          
+
           <form onSubmit={handleGenerateQR} className="space-y-6">
             {/* Amount Field */}
             <div className="space-y-2">
@@ -386,23 +466,28 @@ export default function CreateQRPage() {
         {/* Right Side: Newly Generated QR Code display */}
         <div className="flex-1 w-full flex flex-col justify-center xl:self-stretch">
           {generatedQR ? (
-            <div className="w-full max-w-[400px] xl:max-w-none bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-emerald-100 flex flex-col md:flex-row gap-6 md:items-center relative overflow-hidden xl:h-full justify-center">
+            <div className="w-full bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-emerald-100 flex flex-col items-center justify-center relative overflow-hidden xl:h-full">
               {/* Green Neon Accent Line */}
-              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#00D632]"></div>
+              <div className="absolute left-0 right-0 top-0 h-1.5 bg-[#00D632]"></div>
 
-              {/* QR Image Container */}
-              <div className="p-4 bg-white border border-gray-100 rounded-[28px] max-w-[220px] aspect-square flex items-center justify-center shadow-md mx-auto md:mx-0 shrink-0">
+              {/* QR Image Container (Larger with Cash App central logo overlay) */}
+              <div className="relative p-5 bg-white border border-gray-100 rounded-[36px] w-[340px] h-[340px] flex items-center justify-center shadow-md mx-auto shrink-0 mb-4 select-all">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&ecc=H&data=${encodeURIComponent(`lightning:${generatedQR.lightningInvoice}`)}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=600x600&ecc=H&data=${encodeURIComponent(`https://cash.app/launch/lightning/${generatedQR.lightningInvoice}`)}`}
                   alt="Payment QR"
                   className="w-full h-full object-contain"
                 />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#00D632] w-14 h-14 rounded-[18px] flex items-center justify-center shadow-lg border-4 border-white">
+                  <span className="text-white font-black text-2xl select-none">$</span>
+                </div>
               </div>
 
-              {/* QR Info Details */}
-              <div className="flex-1 space-y-4 text-center md:text-left">
+              {/* Text label under QR */}
+              <p className="text-sm font-semibold text-gray-500 mb-4 font-Montserrat">Scan the QR code to pay</p>
+
+              {/* QR Info Details (Below QR code) */}
+              <div className="w-full text-center space-y-4 max-w-[340px] mx-auto">
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Generated QR Details</p>
                   <h3 className="text-3xl font-extrabold text-gray-900">${parseFloat(generatedQR.amount).toFixed(2)}</h3>
                   {generatedQR.email && (
                     <p className="text-sm font-semibold text-gray-500 mt-1">{generatedQR.email}</p>
@@ -413,34 +498,25 @@ export default function CreateQRPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-[10px] text-gray-400 font-mono break-all line-clamp-2 bg-gray-50 p-2.5 rounded-xl border border-gray-100 select-all max-h-[60px] overflow-y-auto">
-                    {generatedQR.lightningInvoice}
-                  </p>
+                <div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(generatedQR.lightningInvoice);
                         toast.success("Lightning Invoice copied!");
                       }}
-                      className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 border border-gray-200 cursor-pointer"
+                      className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 border border-gray-200 cursor-pointer"
                     >
                       <FaCopy />
                       <span>Copy Invoice</span>
                     </button>
-                    {!generatedQR.status && (
-                      <button
-                        onClick={() => handleCheckStatus(generatedQR._id)}
-                        disabled={checkingIds[generatedQR._id]}
-                        className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm disabled:opacity-50 cursor-pointer"
-                      >
-                        {checkingIds[generatedQR._id] ? (
-                          <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        ) : (
-                          <span>Verify</span>
-                        )}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDownloadQR(generatedQR.lightningInvoice, generatedQR.amount)}
+                      className="flex-1 py-3 bg-[#00D632] hover:bg-[#00b029] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
+                    >
+                      <FaDownload />
+                      <span>Download QR</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -530,7 +606,21 @@ export default function CreateQRPage() {
             >
               <MdOutlineClose className="text-lg" />
             </button>
-            
+
+            {/* QR Code Frame (Larger with Cash App central logo overlay) */}
+            <div className="relative p-4 bg-white border border-gray-100 rounded-[36px] w-[300px] h-[300px] flex items-center justify-center shadow-md relative mb-4 select-all">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=600x600&ecc=H&data=${encodeURIComponent(`https://cash.app/launch/lightning/${viewingQRRecord.lightningInvoice}`)}`}
+                alt="QR Code"
+                className="w-full h-full object-contain"
+              />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#00D632] w-12 h-12 rounded-[16px] flex items-center justify-center shadow-lg border-4 border-white">
+                <span className="text-white font-black text-xl select-none">$</span>
+              </div>
+            </div>
+
+            <p className="text-sm font-semibold text-gray-500 mb-4 font-Montserrat">Scan the QR code to pay</p>
+
             <h3 className="text-lg font-bold text-gray-900 font-Montserrat mb-1">QR Code Payment</h3>
             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">
               Created by: <span className="text-blue-600">{viewingQRRecord.root?.username || "Admin"}</span>
@@ -540,22 +630,13 @@ export default function CreateQRPage() {
                 Note: {viewingQRRecord.email}
               </p>
             )}
-            
-            <h4 className="text-3xl font-extrabold text-emerald-600 mb-5">
+
+            <h4 className="text-3xl font-extrabold text-emerald-600 mb-4">
               ${parseFloat(viewingQRRecord.amount).toFixed(2)}
             </h4>
-            
-            {/* QR Code Frame */}
-            <div className="p-4 bg-white border border-gray-100 rounded-[28px] w-full max-w-[220px] aspect-square flex items-center justify-center shadow-md relative mb-5">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&ecc=H&data=${encodeURIComponent(`lightning:${viewingQRRecord.lightningInvoice}`)}`}
-                alt="QR Code"
-                className="w-full h-full object-contain"
-              />
-            </div>
 
             {/* Status Badge */}
-            <div className="mb-5">
+            <div className="mb-4">
               <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
                 viewingQRRecord.status === true || viewingQRRecord.status === "true"
                   ? "bg-green-100 text-green-800 border border-green-200"
@@ -564,38 +645,27 @@ export default function CreateQRPage() {
                 {viewingQRRecord.status === true || viewingQRRecord.status === "true" ? "Paid" : "Pending"}
               </span>
             </div>
-            
+
             {/* Invoice & Actions */}
-            <div className="w-full space-y-3">
-              <p className="text-[10px] text-gray-500 text-center break-all font-mono select-all bg-gray-50 p-3 rounded-xl border border-gray-100 max-h-[80px] overflow-y-auto">
-                {viewingQRRecord.lightningInvoice}
-              </p>
+            <div className="w-full max-w-[300px] mx-auto">
               <div className="flex gap-2">
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(viewingQRRecord.lightningInvoice);
                     toast.success("Lightning Invoice copied!");
                   }}
-                  className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 border border-gray-200 cursor-pointer"
+                  className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 border border-gray-200 cursor-pointer active:scale-95"
                 >
                   <FaCopy />
                   <span>Copy Invoice</span>
                 </button>
-                {!(viewingQRRecord.status === true || viewingQRRecord.status === "true") && (
-                  <button
-                    onClick={() => {
-                      handleCheckStatus(viewingQRRecord._id);
-                    }}
-                    disabled={checkingIds[viewingQRRecord._id]}
-                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
-                  >
-                    {checkingIds[viewingQRRecord._id] ? (
-                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    ) : (
-                      <span>Verify</span>
-                    )}
-                  </button>
-                )}
+                <button
+                  onClick={() => handleDownloadQR(viewingQRRecord.lightningInvoice, viewingQRRecord.amount)}
+                  className="flex-1 py-3 bg-[#00D632] hover:bg-[#00b029] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
+                >
+                  <FaDownload />
+                  <span>Download QR</span>
+                </button>
               </div>
             </div>
           </div>
