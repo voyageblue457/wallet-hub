@@ -14,7 +14,9 @@ function Notification() {
 
   const { data: session } = useSession();
 
-  const adminId = session?.user.adminId;
+  const admin = session?.user?.admin;
+  const adminId = session?.user?.adminId;
+  const posterId = session?.user?.posterId || session?.user?.id;
 
   // console.log("session", session);
   // console.log("notifications", notifications);
@@ -50,6 +52,11 @@ function Notification() {
 
       const channel = pusher.subscribe(adminId);
       channel.bind("new-notification", (data) => {
+        // If logged in as a poster, only show notifications for this poster's collections
+        if (admin === false && data.posterId !== posterId) {
+          return;
+        }
+
         setNotifications((prevNotifications) => [
           ...prevNotifications,
           `New collection added from ${data.name}`,
@@ -69,7 +76,7 @@ function Notification() {
         pusher.unsubscribe(adminId);
       };
     }
-  }, [adminId]);
+  }, [adminId, admin, posterId]);
 
   const handleNotificationsClick = () => {
     setUnseenNotifications(0);

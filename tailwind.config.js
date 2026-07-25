@@ -1,9 +1,11 @@
 /** @type {import('tailwindcss').Config} */
+const projectDir = __dirname.replace(/\\/g, "/");
+
 module.exports = {
   content: [
-    "./app/**/*.{js,ts,jsx,tsx}",
-    "./pages/**/*.{js,ts,jsx,tsx}",
-    "./components/**/*.{js,ts,jsx,tsx}",
+    `${projectDir}/app/**/*.{js,ts,jsx,tsx}`,
+    `${projectDir}/pages/**/*.{js,ts,jsx,tsx}`,
+    `${projectDir}/components/**/*.{js,ts,jsx,tsx}`,
   ],
   theme: {
     extend: {
