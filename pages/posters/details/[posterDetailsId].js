@@ -1,4 +1,5 @@
 import { useRouter } from "next/router";
+import { useState, useCallback } from "react";
 import { FaUser } from "react-icons/fa";
 import Table from "../../../components/Table";
 import { collectionColumn } from "../../../components/Table/columns/collectionColumn";
@@ -11,18 +12,38 @@ function PosterDetailsPage() {
   const { showTagField } = session ? session.user : "";
   const { back, query } = useRouter();
   const { posterDetailsId } = query;
-  const { data, isLoading } = useGetData(`/posters/details/${posterDetailsId}`);
+
+  // Server-side pagination state
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+
+  // Build query string for API
+  const buildQuery = useCallback(() => {
+    const params = new URLSearchParams({
+      page: pageIndex + 1,
+      pageSize,
+    });
+    if (sortBy.length > 0) {
+      params.append("sortBy", JSON.stringify(sortBy));
+    }
+    if (globalFilter) {
+      params.append("filter", globalFilter);
+    }
+    return params.toString();
+  }, [pageIndex, pageSize, sortBy, globalFilter]);
+
+  const apiQuery = buildQuery();
+  const route = `/posters/details/${posterDetailsId}?${apiQuery}`;
+
+  const { data, isLoading } = useGetData(route);
 
   console.log("poster collection", data);
 
-  // const { username, password, posterId, links, details } = data
-  //   ? data?.data?.data
-  //   : "";
-  // console.log(data)
-
-  const { _doc, details } = data ? data?.data?.data : "";
-  // console.log("details",details)
-  const { username, password, posterId, links, tag, root } = _doc ? _doc : "";
+  const { _doc, details, total: totalCount } = data ? data?.data : { _doc: {}, details: [], total: 0 };
+  const { username, password, posterId, links, tag, root } = _doc || {};
 
   let totalAmount = 0;
   let pendingAmount = 0;
@@ -43,10 +64,31 @@ function PosterDetailsPage() {
     });
   }
 
+  // Update total when data loads
+  if (totalCount !== total) {
+    setTotal(totalCount);
+  }
+
   const remainingAmount = totalAmount - paidAmount;
 
-  // console.log("poster data _doc:", _doc);
-  // console.log("poster id", posterId);
+  const handlePageChange = useCallback((newPageIndex) => {
+    setPageIndex(newPageIndex);
+  }, []);
+
+  const handlePageSizeChange = useCallback((newPageSize) => {
+    setPageSize(newPageSize);
+    setPageIndex(0);
+  }, []);
+
+  const handleSortChange = useCallback((newSortBy) => {
+    setSortBy(newSortBy);
+    setPageIndex(0);
+  }, []);
+
+  const handleGlobalFilterChange = useCallback((filter) => {
+    setGlobalFilter(filter);
+    setPageIndex(0);
+  }, []);
 
   return (
     <div className="relative">
@@ -139,6 +181,15 @@ function PosterDetailsPage() {
                   <Table
                     columnsHeading={collectionColumn}
                     usersData={details}
+                    pageIndex={pageIndex}
+                    pageSize={pageSize}
+                    total={total}
+                    onPageChange={handlePageChange}
+                    onPageSizeChange={handlePageSizeChange}
+                    onSortChange={handleSortChange}
+                    onGlobalFilterChange={handleGlobalFilterChange}
+                    manualSorting={true}
+                    manualGlobalFilter={true}
                   />
                 )}
               </div>

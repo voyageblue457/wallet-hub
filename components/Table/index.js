@@ -1,10 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   useTable,
   useSortBy,
   useGlobalFilter,
   useFilters,
-  usePagination,
   useRowSelect,
 } from "react-table";
 import {
@@ -13,111 +12,127 @@ import {
   FaSortDown,
   FaAngleDoubleLeft,
   FaAngleDoubleRight,
-  FaTrash,
-  FaEdit,
-  FaTimes,
 } from "react-icons/fa";
-import { BsThreeDots } from "react-icons/bs";
-import { MdOutlineClose } from "react-icons/md";
-// import { COLUMNS } from "./columns";
-// import MOCK_DATA from "./data.json";
 import { GlobalFilter } from "./GlobalFilter";
 import useToggle from "../../hooks/useToggle";
-// import TableMenu from "./TableMenu";
-// import { ColumnFilter } from "./ColumnFilter";
-// import { Checkbox } from "./Checkbox";
 
-function Table({ columnsHeading, usersData }) {
+function Table({
+  columnsHeading,
+  usersData,
+  // Server-side pagination props
+  pageIndex = 0,
+  pageSize = 20,
+  total = 0,
+  onPageChange,
+  onPageSizeChange,
+  onSortChange,
+  onGlobalFilterChange,
+  // Server-side feature flags
+  manualSorting = true,
+  manualGlobalFilter = true,
+}) {
   const columns = useMemo(() => columnsHeading, [columnsHeading]);
-  // const data = useMemo(() => MOCK_DATA, []);
-  const data = useMemo(() => usersData, [usersData]);
-  // const defaultColumn = useMemo(() => {
-  //   return {
-  //     Filter: ColumnFilter,
-  //   };
-  // }, []);
+  const data = useMemo(() => usersData || [], [usersData]);
 
-  // console.log("tables", usersData);
-
-  // const [active, setActive] = useState("");
   const { togggle: active, setToggle: setActive, node } = useToggle();
-  // const { node } = useToggle();
 
   const showMenu = (i) => {
     if (active === i) {
       return setActive(null);
     }
-
     setActive(i);
   };
+
+  // Handle sort change
+  const handleSortChange = useCallback(
+    (sortBy) => {
+      if (manualSorting && onSortChange) {
+        onSortChange(sortBy);
+      }
+    },
+    [manualSorting, onSortChange]
+  );
+
+  // Handle global filter change
+  const handleGlobalFilterChange = useCallback(
+    (filter) => {
+      if (manualGlobalFilter && onGlobalFilterChange) {
+        onGlobalFilterChange(filter);
+      }
+    },
+    [manualGlobalFilter, onGlobalFilterChange]
+  );
+
+  const tableInstance = useTable(
+    {
+      columns,
+      data,
+      manualSorting,
+      manualGlobalFilter,
+      initialState: { pageSize },
+      defaultColumn: {
+        minWidth: 150,
+      },
+      // Disable auto-reset for server-side pagination
+      autoResetPage: false,
+      autoResetSortBy: false,
+      autoResetGlobalFilter: false,
+      autoResetFilters: false,
+    },
+    useGlobalFilter,
+    useFilters,
+    useSortBy,
+    useRowSelect
+  );
 
   const {
     getTableProps,
     getTableBodyProps,
     headerGroups,
-    page,
     prepareRow,
     state,
     setGlobalFilter,
-    nextPage,
-    previousPage,
-    canPreviousPage,
-    canNextPage,
-    pageOptions,
-    gotoPage,
-    pageCount,
-    setPageSize,
-    // selectedFlatRows,
-  } = useTable(
-    {
-      columns,
-      data,
-      initialState: { pageSize: 20 },
-      defaultColumn: {
-        minWidth: 150,
-      },
+    page, // current page data (already paginated from parent)
+  } = tableInstance;
+
+  const { globalFilter, sortBy } = state;
+
+  // Calculate pagination values for display
+  const pageCount = Math.ceil(total / pageSize);
+  const canPreviousPage = pageIndex > 0;
+  const canNextPage = pageIndex < pageCount - 1;
+
+  // Handle page size change
+  const handlePageSizeChange = useCallback(
+    (newPageSize) => {
+      if (onPageSizeChange) {
+        onPageSizeChange(newPageSize);
+      }
     },
-    useGlobalFilter,
-    useFilters,
-    useSortBy,
-    usePagination,
-    useRowSelect
-    // (hooks) => {
-    //   hooks.visibleColumns.push((columns) => [
-    //     {
-    //       id: "selection",
-    //       // Header: ({ getToggleAllRowsSelectedProps }) => (
-    //       //   <Checkbox {...getToggleAllRowsSelectedProps()} />
-    //       // ),
-    //       // Cell: ({ row }) => <Checkbox {...row.getToggleRowSelectedProps()} />,
-    //     },
-    //     ...columns,
-    //   ]);
-    // }
+    [onPageSizeChange]
   );
 
-  const { globalFilter, pageIndex, pageSize } = state;
-
-  // const selectedRows = JSON.stringify(
-  //   {
-  //     selectedFlatRows: selectedFlatRows.map((row) => row.original),
-  //   },
-  //   null,
-  //   2
-  // );
-
-  // console.log(selectedRows);
-
-  // const [pageNumber, setPageNumber] = useState(pageIndex + 1);
-
-  // console.log(pageIndex + 1);
+  // Handle page change
+  const handlePageChange = useCallback(
+    (newPageIndex) => {
+      if (onPageChange) {
+        onPageChange(newPageIndex);
+      }
+    },
+    [onPageChange]
+  );
 
   return (
-    // <div className="flex flex-col items-stretch  px-7 py-10">
     <div className="py-10">
-      <GlobalFilter filter={globalFilter} setFilter={setGlobalFilter} />
+      <GlobalFilter
+        filter={globalFilter}
+        setFilter={handleGlobalFilterChange}
+      />
       <div className="flex flex-col items-stretch overflow-x-auto">
-        <table {...getTableProps()} className="table-auto text-xs lg:text-base">
+        <table
+          {...getTableProps()}
+          className="table-auto text-xs lg:text-base"
+        >
           <thead className="bg-white">
             {headerGroups.map((headerGroup, i) => (
               <tr key={i} {...headerGroup.getHeaderGroupProps()}>
@@ -125,21 +140,19 @@ function Table({ columnsHeading, usersData }) {
                   <th
                     key={i}
                     {...column.getHeaderProps({
-                      style: { minWidth: column.minWidth, width: column.width },
+                      style: {
+                        minWidth: column.minWidth,
+                        width: column.width,
+                      },
                     })}
-                    // style={{ width: column.width }}
                     className={`px-2 py-3 text-sm border-collapse border border-gray-100 capitalize`}
                   >
-                    {/* <span
-                    {...column.getHeaderProps(column.getSortByToggleProps())}
-                  > */}
                     {column.render("Header")}
-                    {/* </span> */}
                     <span
                       {...column.getHeaderProps(column.getSortByToggleProps())}
                       className="inline-block px-2"
                     >
-                      {!column.disableSortBy && (
+                      {!column.disableSortBy && !manualSorting && (
                         <div className="text-xs">
                           {column.isSorted ? (
                             column.isSortedDesc ? (
@@ -153,9 +166,6 @@ function Table({ columnsHeading, usersData }) {
                         </div>
                       )}
                     </span>
-                    {/* <div className="mt-2 text-black font-normal">
-                      {column.canFilter ? column.render("Filter") : null}
-                    </div> */}
                   </th>
                 ))}
               </tr>
@@ -186,85 +196,97 @@ function Table({ columnsHeading, usersData }) {
                 </tr>
               );
             })}
+            {page.length === 0 && (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-8 text-center text-gray-500"
+                >
+                  No data available
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
-      <div className="mt-5 flex flex-col lg:flex-row justify-center items-center gap-4 lg:gap-7 text-sm">
-        <div className="">
-          <span className="text-sm">
-            Page{" "}
-            <strong>
-              {pageIndex + 1} of {pageOptions.length}
-            </strong>
-          </span>
-        </div>
+      {total > 0 && (
+        <div className="mt-5 flex flex-col lg:flex-row justify-center items-center gap-4 lg:gap-7 text-sm">
+          <div className="">
+            <span className="text-sm">
+              Page{" "}
+              <strong>
+                {pageIndex + 1} of {pageCount || 1}
+              </strong>
+            </span>
+          </div>
 
-        <div className="space-x-5">
-          <span>
-            Rows per page:{" "}
-            <select
-              className="outline-none w-12 border border-slate-300"
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
+          <div className="space-x-5">
+            <span>
+              Rows per page:{" "}
+              <select
+                className="outline-none w-12 border border-slate-300"
+                value={pageSize}
+                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              >
+                {[20, 50, 100].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </span>
+
+            <span>
+              Go to page:{" "}
+              <input
+                type="number"
+                min="1"
+                max={pageCount || 1}
+                className="w-10 outline-none border border-slate-500"
+                defaultValue={pageIndex + 1}
+                onChange={(e) => {
+                  const pageNumber = e.target.value
+                    ? Number(e.target.value) - 1
+                    : 0;
+                  handlePageChange(Math.max(0, Math.min(pageNumber, pageCount - 1)));
+                }}
+              />
+            </span>
+          </div>
+
+          <div className="flex gap-1">
+            <button
+              className="p-1 text-sm rounded-sm bg-cyan-300 disabled:opacity-50"
+              onClick={() => handlePageChange(0)}
+              disabled={!canPreviousPage}
             >
-              {[20, 50].map((pageSize) => (
-                <option key={pageSize} value={pageSize}>
-                  {pageSize}
-                </option>
-              ))}
-            </select>
-          </span>
-
-          <span>
-            Go to page:{" "}
-            <input
-              type="number"
-              min="1"
-              max={pageOptions.length}
-              className="w-10 outline-none border border-slate-500"
-              defaultValue={pageIndex + 1}
-              onChange={(e) => {
-                const pageNumber = e.target.value
-                  ? Number(e.target.value) - 1
-                  : 0;
-                gotoPage(pageNumber);
-              }}
-            />
-          </span>
+              <FaAngleDoubleLeft />
+            </button>
+            <button
+              className="bg-cyan-300 active:bg-cyan-400 px-3 py-1 rounded-sm text-sm disabled:opacity-50"
+              onClick={() => handlePageChange(pageIndex - 1)}
+              disabled={!canPreviousPage}
+            >
+              Previous
+            </button>
+            <button
+              className="bg-cyan-300 active:bg-cyan-400 px-3 py-1 rounded-sm text-sm disabled:opacity-50"
+              onClick={() => handlePageChange(pageIndex + 1)}
+              disabled={!canNextPage}
+            >
+              Next
+            </button>
+            <button
+              className="p-1 text-sm rounded-sm  bg-cyan-300 disabled:opacity-50"
+              onClick={() => handlePageChange(pageCount - 1)}
+              disabled={!canNextPage}
+            >
+              <FaAngleDoubleRight />
+            </button>
+          </div>
         </div>
-
-        <div className="flex gap-1">
-          <button
-            className="p-1 text-sm rounded-sm bg-cyan-300 disabled:opacity-50"
-            onClick={() => gotoPage(0)}
-            disabled={!canPreviousPage}
-          >
-            <FaAngleDoubleLeft />
-          </button>
-          <button
-            className="bg-cyan-300 active:bg-cyan-400 px-3 py-1 rounded-sm text-sm disabled:opacity-50"
-            onClick={() => previousPage()}
-            disabled={!canPreviousPage}
-          >
-            Previous
-          </button>
-          <button
-            className="bg-cyan-300 active:bg-cyan-400 px-3 py-1 rounded-sm text-sm disabled:opacity-50"
-            onClick={() => nextPage()}
-            disabled={!canNextPage}
-          >
-            Next
-          </button>
-          <button
-            className="p-1 text-sm rounded-sm  bg-cyan-300 disabled:opacity-50"
-            onClick={() => gotoPage(pageCount - 1)}
-            disabled={!canNextPage}
-          >
-            <FaAngleDoubleRight />
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

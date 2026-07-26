@@ -1,64 +1,3 @@
-// import Cards from "../components/Cards";
-// import { FaHome } from "react-icons/fa";
-// import { useSession } from "next-auth/react";
-// import Marquee from "react-fast-marquee";
-// // import { useEffect, useState } from "react";
-// import useGetData from "../hooks/useGetData";
-
-// export default function Home() {
-//   // const [showAd, setShowAd] = useState(false);
-
-//   const { data: session } = useSession();
-//   const { adminId } = session ? session.user : "";
-//   // const qrCodeStatus = data?.user?.qrCodeStatus;
-
-//   const { data: fetchedData, isLoading } = useGetData(
-//     `/qrcode/status/check/${adminId}`
-//   );
-
-//   console.log("ad", fetchedData);
-
-//   // useEffect(() => {
-//   //   // qrCodeStatus === true && setShowAd(true);
-//   //   fetchedData.status !== true && setShowAd(true);
-//   // }, []);
-
-//   return (
-//     <div className="">
-//       <div className="flex items-center gap-3">
-//         <span className="text-[28px] text-custom-blue2">
-//           <FaHome />
-//         </span>
-//         <h1 className="text-2xl font-bold text-custom-gray2">Dashboard</h1>
-//       </div>
-//       <a href="https://www.back4page.com" target="_blank" rel="noreferrer">
-//         <div className="mt-7 bg-cyan-700 px-5 py-3 text-white font-semibold">
-//           <Marquee gradient={false} speed={150}>
-//             <span className="mr-20 md:mr-0">
-//               Need more traffic? visit back4page.com
-//             </span>
-//           </Marquee>
-//         </div>
-//       </a>
-
-//       {session && fetchedData?.data?.status !== true && !isLoading && (
-//         <div className="mt-2 bg-red-700 px-5 py-3 text-white font-semibold">
-//           <Marquee gradient={false} speed={130}>
-//             <span className="mr-20 md:mr-0">
-//               A new feature QR Code Generator is added. Please contact with
-//               admin to activate.
-//             </span>
-//           </Marquee>
-//         </div>
-//       )}
-
-//       <div className="grid lg:grid-cols-3 gap-8 mt-7 md:grid-cols-2 ">
-//         <Cards />
-//       </div>
-//     </div>
-//   );
-// }
-
 import { useSession } from "next-auth/react";
 import {
   FaCalculator,
@@ -71,6 +10,8 @@ import Table from "../components/Table";
 import { clicksColumn } from "../components/Table/columns/clicksColumn";
 import useGetData from "../hooks/useGetData";
 import { FaMobileAlt, FaDesktop, FaTabletAlt, FaUsers } from "react-icons/fa";
+import { useState, useCallback } from "react";
+
 function HomePage() {
   const { data } = useSession();
   const admin = data?.user?.admin;
@@ -79,25 +20,47 @@ function HomePage() {
 
   const route = admin ? `/${adminId}` : `/${adminId}/${posterId}`;
 
-  const { data: fetchedData, isLoading, isError } = useGetData(route);
+  // Server-side pagination state
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState([]);
+  const [globalFilter, setGlobalFilter] = useState("");
 
-  const {
-    data: fetchedData2,
-    isLoading: isLoading2,
-    isError: isError2,
-  } = useGetData(
+  // Build query string for API
+  const buildQuery = useCallback(() => {
+    const params = new URLSearchParams({
+      page: pageIndex + 1,
+      pageSize,
+    });
+    if (sortBy.length > 0) {
+      params.append("sortBy", JSON.stringify(sortBy));
+    }
+    if (globalFilter) {
+      params.append("filter", globalFilter);
+    }
+    return params.toString();
+  }, [pageIndex, pageSize, sortBy, globalFilter]);
+
+  const query = buildQuery();
+  const apiRoute = `${route}/clicks?${query}`;
+
+  const { data: fetchedData, isLoading } = useGetData(apiRoute);
+  const { data: fetchedData2, isLoading: isLoading2 } = useGetData(
     `/today/app/details/data/poster/hello/found/end/${
       admin ? adminId : posterId
     }`
   );
 
-  // console.log("fetchedata2", fetchedData2?.data);
+  const clicksData = fetchedData?.data?.data || [];
+  const totalCount = fetchedData?.data?.total || 0;
 
-  const clicksData = fetchedData?.data?.click;
+  // Update total when data loads
+  if (totalCount !== total) {
+    setTotal(totalCount);
+  }
 
   const cardsData = fetchedData2?.data;
-
-  console.log("clicksData", clicksData);
 
   const cards = [
     {
@@ -129,6 +92,25 @@ function HomePage() {
       icon: <FaUsers className="text-white text-2xl" />,
     },
   ];
+
+  const handlePageChange = useCallback((newPageIndex) => {
+    setPageIndex(newPageIndex);
+  }, []);
+
+  const handlePageSizeChange = useCallback((newPageSize) => {
+    setPageSize(newPageSize);
+    setPageIndex(0); // Reset to first page when page size changes
+  }, []);
+
+  const handleSortChange = useCallback((newSortBy) => {
+    setSortBy(newSortBy);
+    setPageIndex(0); // Reset to first page when sort changes
+  }, []);
+
+  const handleGlobalFilterChange = useCallback((filter) => {
+    setGlobalFilter(filter);
+    setPageIndex(0); // Reset to first page when filter changes
+  }, []);
 
   return (
     <div className="relative">
@@ -162,9 +144,21 @@ function HomePage() {
         <div className="mt-10 bg-white p-4 lg:p-8  rounded shadow-md">
           <h4 className="text-xl font-semibold">Total Clicks</h4>
           {clicksData && (
-            <Table columnsHeading={clicksColumn} usersData={clicksData} />
+            <Table
+              columnsHeading={clicksColumn}
+              usersData={clicksData}
+              pageIndex={pageIndex}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              onSortChange={handleSortChange}
+              onGlobalFilterChange={handleGlobalFilterChange}
+              manualSorting={true}
+              manualGlobalFilter={true}
+            />
           )}
-          {!clicksData && <p className="mt-10 text-lg">No Clicks</p>}
+          {!clicksData && !isLoading && <p className="mt-10 text-lg">No Clicks</p>}
         </div>
       </Loader>
     </div>

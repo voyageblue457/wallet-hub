@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { getSession, useSession } from "next-auth/react";
 import { FaEnvelope } from "react-icons/fa";
 import Loader from "../components/common/Loader";
@@ -7,17 +8,63 @@ import { API_URL } from "../config";
 import useGetData from "../hooks/useGetData";
 
 function CollectionsPage() {
-  // const { username, password, posterId, links, details } = data?.data;
-
   const { data } = useSession();
   const id = data?.user?.id;
-  // console.log("poster session", id);
 
-  const { data: fetchedData, isLoading } = useGetData(`/posters/details/${id}`);
+  // Server-side pagination state
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState([]);
+  const [globalFilter, setGlobalFilter] = useState("");
 
-  const details = fetchedData?.data?.data?.details;
+  // Build query string for API
+  const buildQuery = useCallback(() => {
+    const params = new URLSearchParams({
+      page: pageIndex + 1,
+      pageSize,
+    });
+    if (sortBy.length > 0) {
+      params.append("sortBy", JSON.stringify(sortBy));
+    }
+    if (globalFilter) {
+      params.append("filter", globalFilter);
+    }
+    return params.toString();
+  }, [pageIndex, pageSize, sortBy, globalFilter]);
 
-  console.log(details);
+  const query = buildQuery();
+  const route = `/posters/details/${id}?${query}`;
+
+  const { data: fetchedData, isLoading } = useGetData(route);
+
+  const poster = fetchedData?.data?.poster;
+  const details = fetchedData?.data?.data || [];
+  const totalCount = fetchedData?.data?.total || 0;
+
+  // Update total when data loads
+  if (totalCount !== total) {
+    setTotal(totalCount);
+  }
+
+  const handlePageChange = useCallback((newPageIndex) => {
+    setPageIndex(newPageIndex);
+  }, []);
+
+  const handlePageSizeChange = useCallback((newPageSize) => {
+    setPageSize(newPageSize);
+    setPageIndex(0);
+  }, []);
+
+  const handleSortChange = useCallback((newSortBy) => {
+    setSortBy(newSortBy);
+    setPageIndex(0);
+  }, []);
+
+  const handleGlobalFilterChange = useCallback((filter) => {
+    setGlobalFilter(filter);
+    setPageIndex(0);
+  }, []);
 
   return (
     <div className="relative">
@@ -32,7 +79,19 @@ function CollectionsPage() {
         <div className="mt-7">
           <div className="p-4 bg-white rounded shadow-md lg:p-8">
             {details && (
-              <Table columnsHeading={collectionColumn} usersData={details} />
+              <Table
+                columnsHeading={collectionColumn}
+                usersData={details}
+                pageIndex={pageIndex}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+                onSortChange={handleSortChange}
+                onGlobalFilterChange={handleGlobalFilterChange}
+                manualSorting={true}
+                manualGlobalFilter={true}
+              />
             )}
           </div>
         </div>

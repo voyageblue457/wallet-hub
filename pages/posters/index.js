@@ -1,5 +1,5 @@
 import { getSession, useSession } from "next-auth/react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { FaUsers } from "react-icons/fa";
 import Loader from "../../components/common/Loader";
 import PosterForm from "../../components/Form/PosterForm";
@@ -8,47 +8,87 @@ import TagForm from "../../components/Form/TagForm";
 import Table from "../../components/Table";
 import { postersColumn } from "../../components/Table/columns/postersColumn";
 import Tabs from "../../components/Tabs";
-// import { API_URL, id, adminId } from "../../config";
 import useGetData from "../../hooks/useGetData";
 import { getTimeDistance } from "./../../utils/getTimeDistance";
 
-// const userData = [
-//   { username: "user1", password: "1234", posterId: "001" },
-//   { username: "user2", password: "1234", posterId: "002" },
-//   { username: "user3", password: "1234", posterId: "003" },
-//   { username: "user4", password: "1234", posterId: "004" },
-//   { username: "user5", password: "1234", posterId: "005" },
-// ];
-
 function Posterspage() {
-  // const { data: session } = useSession({ required: true });
   const { data: session } = useSession();
   const { id, username, admin, adminId } = session
     ? session.user
     : "";
 
+  // Server-side pagination state
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+
+  // Build query string for API
+  const buildQuery = useCallback(() => {
+    const params = new URLSearchParams({
+      page: pageIndex + 1,
+      pageSize,
+    });
+    if (sortBy.length > 0) {
+      params.append("sortBy", JSON.stringify(sortBy));
+    }
+    if (globalFilter) {
+      params.append("filter", globalFilter);
+    }
+    return params.toString();
+  }, [pageIndex, pageSize, sortBy, globalFilter]);
+
+  const query = buildQuery();
+  const route = `/all/poster/${id}?${query}`;
+
   const {
     data: fetchedData,
     isLoading,
     isError,
-  } = useGetData(`/all/poster/${id}`);
-  // console.log("postersss", fetchedData);
+  } = useGetData(route);
 
-  // console.log("session", session);
+  const userData = fetchedData?.data?.posters || [];
+  const totalCount = fetchedData?.data?.total || 0;
 
-  // console.log(
-  //   "fetchedddd",
-  //   fetchedData?.data?.data?.createdAt
-  //   // getTimeDistance(fetchedData?.data?.data?.createdAt)
-  // );
+  // Update total when data loads
+  if (totalCount !== total) {
+    setTotal(totalCount);
+  }
 
-  const userData = fetchedData?.data?.data?.posters;
+  const handlePageChange = useCallback((newPageIndex) => {
+    setPageIndex(newPageIndex);
+  }, []);
 
-  // console.log("userData", userData);
+  const handlePageSizeChange = useCallback((newPageSize) => {
+    setPageSize(newPageSize);
+    setPageIndex(0);
+  }, []);
 
-  // console.log("ppp", fetchedData.data?.[0].posters);
+  const handleSortChange = useCallback((newSortBy) => {
+    setSortBy(newSortBy);
+    setPageIndex(0);
+  }, []);
+
+  const handleGlobalFilterChange = useCallback((filter) => {
+    setGlobalFilter(filter);
+    setPageIndex(0);
+  }, []);
+
   const table = userData && (
-    <Table columnsHeading={postersColumn} usersData={userData} />
+    <Table
+      columnsHeading={postersColumn}
+      usersData={userData}
+      pageIndex={pageIndex}
+      pageSize={pageSize}
+      total={total}
+      onPageChange={handlePageChange}
+      onPageSizeChange={handlePageSizeChange}
+      onSortChange={handleSortChange}
+      onGlobalFilterChange={handleGlobalFilterChange}
+      manualSorting={true}
+      manualGlobalFilter={true}
+    />
   );
   const form = <PosterForm id={id} adminId={adminId} />;
 
@@ -84,29 +124,5 @@ function Posterspage() {
     </div>
   );
 }
-
-// export async function getServerSideProps(context) {
-//   // const {
-//   //   user: { username, id, admin },
-//   // } = await getSession(context);
-
-//   // const session = getSession(context);
-
-//   // console.log("server", session);
-
-//   // const url = `${API_URL}/linl/all/${id}`;
-//   //      const res = await fetch(url);
-//   //      const data = await res.json();
-
-//   // if (!admin) {
-//   //   return {
-//   //     notFound: true,
-//   //   };
-//   // }
-
-//   return {
-//     props: {},
-//   };
-// }
 
 export default Posterspage;
