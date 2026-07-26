@@ -18,11 +18,11 @@ const getAmountColumn = (admin, posterUsername, handleCheckStatus, checkingIds) 
     },
     admin && {
       Header: "Username",
-      accessor: (row) => row.original.root?.username || (admin ? "Admin" : (posterUsername || "Admin")),
+      accessor: (row) => row?.root?.username || (admin ? "Admin" : (posterUsername || "Admin")),
       id: "username",
       width: "auto",
       Cell: ({ row, value }) => {
-        const posterIdVal = row.original.root?._id || row.original.poster || row.original.posterId;
+        const posterIdVal = row.original?.root?._id || row.original?.poster || row.original?.posterId;
         if (admin && posterIdVal) {
           return (
             <Link href={`/posters/details/${posterIdVal}`}>
