@@ -23,7 +23,6 @@ function HomePage() {
   // Server-side pagination state
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -43,22 +42,17 @@ function HomePage() {
   }, [pageIndex, pageSize, sortBy, globalFilter]);
 
   const query = buildQuery();
-  const apiRoute = `${route}/clicks?${query}`;
+  const apiRoute = adminId ? `${route}/clicks?${query}` : null;
 
   const { data: fetchedData, isLoading } = useGetData(apiRoute);
   const { data: fetchedData2, isLoading: isLoading2 } = useGetData(
-    `/today/app/details/data/poster/hello/found/end/${
-      admin ? adminId : posterId
-    }`
+    (admin ? adminId : posterId)
+      ? `/today/app/details/data/poster/hello/found/end/${admin ? adminId : posterId}`
+      : null
   );
 
   const clicksData = fetchedData?.data?.data || [];
-  const totalCount = fetchedData?.data?.total || 0;
-
-  // Update total when data loads
-  if (totalCount !== total) {
-    setTotal(totalCount);
-  }
+  const total = fetchedData?.data?.total || 0;
 
   const cardsData = fetchedData2?.data;
 

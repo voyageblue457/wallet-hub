@@ -11,7 +11,7 @@ import { API_URL } from "../../config";
 function PosterLinks({ id, admin }) {
   // Fetch assigned base links
   const { data: fetchedBaseData, isLoading: isBaseLoading } = useGetData(
-    `/link/get/all/hello/world/com/data/${id}/${admin}`,
+    id ? `/link/get/all/hello/world/com/data/${id}/${admin}` : null,
   );
   const activeSites = fetchedBaseData?.data?.data;
 
@@ -20,14 +20,14 @@ function PosterLinks({ id, admin }) {
     data: fetchedDynamicLinks,
     refetch: refetchDynamicLinks,
     isLoading: isLinksLoading,
-  } = useGetData(`/dynamic-link/get/${id}`);
+  } = useGetData(id ? `/dynamic-link/get/${id}` : null);
 
   const dynamicLinks =
     fetchedDynamicLinks?.data?.data || fetchedDynamicLinks?.data;
 
   // Fetch poster details to get the saved tag
-  const { data: posterData } = useGetData(`/posters/details/${id}`);
-  const tag = posterData?.data?.data?._doc?.tag || "";
+  const { data: posterData } = useGetData(id ? `/posters/details/${id}` : null);
+  const tag = posterData?.data?.data?._doc?.tag || posterData?.data?.tag || "";
 
   const handleCopy = (linkName) => {
     if (linkName) {

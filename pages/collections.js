@@ -14,7 +14,6 @@ function CollectionsPage() {
   // Server-side pagination state
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -34,18 +33,13 @@ function CollectionsPage() {
   }, [pageIndex, pageSize, sortBy, globalFilter]);
 
   const query = buildQuery();
-  const route = `/posters/details/${id}?${query}`;
+  const route = id ? `/posters/details/${id}?${query}` : null;
 
   const { data: fetchedData, isLoading } = useGetData(route);
 
-  const poster = fetchedData?.data?.poster;
-  const details = fetchedData?.data?.data || [];
-  const totalCount = fetchedData?.data?.total || 0;
-
-  // Update total when data loads
-  if (totalCount !== total) {
-    setTotal(totalCount);
-  }
+  const posterData = fetchedData?.data?.data || fetchedData?.data || {};
+  const details = posterData?.details || [];
+  const total = posterData?.total || 0;
 
   const handlePageChange = useCallback((newPageIndex) => {
     setPageIndex(newPageIndex);

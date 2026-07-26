@@ -34,26 +34,8 @@ function Table({
   const columns = useMemo(() => columnsHeading, [columnsHeading]);
   const data = useMemo(() => usersData || [], [usersData]);
 
-  const { togggle: active, setToggle: setActive, node } = useToggle();
+  const { togggle: active, setToggle: setActive } = useToggle();
 
-  const showMenu = (i) => {
-    if (active === i) {
-      return setActive(null);
-    }
-    setActive(i);
-  };
-
-  // Handle sort change
-  const handleSortChange = useCallback(
-    (sortBy) => {
-      if (manualSorting && onSortChange) {
-        onSortChange(sortBy);
-      }
-    },
-    [manualSorting, onSortChange]
-  );
-
-  // Handle global filter change
   const handleGlobalFilterChange = useCallback(
     (filter) => {
       if (manualGlobalFilter && onGlobalFilterChange) {
@@ -69,11 +51,12 @@ function Table({
       data,
       manualSorting,
       manualGlobalFilter,
-      initialState: { pageSize },
+      manualPagination: true,
+      pageCount: Math.ceil(total / pageSize) || 1,
+      initialState: { pageIndex, pageSize },
       defaultColumn: {
         minWidth: 150,
       },
-      // Disable auto-reset for server-side pagination
       autoResetPage: false,
       autoResetSortBy: false,
       autoResetGlobalFilter: false,
@@ -90,19 +73,16 @@ function Table({
     getTableBodyProps,
     headerGroups,
     prepareRow,
+    rows,
     state,
-    setGlobalFilter,
-    page, // current page data (already paginated from parent)
   } = tableInstance;
 
-  const { globalFilter, sortBy } = state;
+  const { globalFilter } = state;
 
-  // Calculate pagination values for display
-  const pageCount = Math.ceil(total / pageSize);
+  const pageCount = Math.ceil(total / pageSize) || 1;
   const canPreviousPage = pageIndex > 0;
   const canNextPage = pageIndex < pageCount - 1;
 
-  // Handle page size change
   const handlePageSizeChange = useCallback(
     (newPageSize) => {
       if (onPageSizeChange) {
@@ -112,7 +92,6 @@ function Table({
     [onPageSizeChange]
   );
 
-  // Handle page change
   const handlePageChange = useCallback(
     (newPageIndex) => {
       if (onPageChange) {
@@ -131,72 +110,92 @@ function Table({
       <div className="flex flex-col items-stretch overflow-x-auto">
         <table
           {...getTableProps()}
-          className="table-auto text-xs lg:text-base"
+          className="table-auto text-xs lg:text-base w-full"
         >
           <thead className="bg-white">
             {headerGroups.map((headerGroup, i) => (
               <tr key={i} {...headerGroup.getHeaderGroupProps()}>
-                {headerGroup.headers.map((column, i) => (
-                  <th
-                    key={i}
-                    {...column.getHeaderProps({
-                      style: {
-                        minWidth: column.minWidth,
-                        width: column.width,
-                      },
-                    })}
-                    className={`px-2 py-3 text-sm border-collapse border border-gray-100 capitalize`}
-                  >
-                    {column.render("Header")}
-                    <span
-                      {...column.getHeaderProps(column.getSortByToggleProps())}
-                      className="inline-block px-2"
+                {headerGroup.headers.map((column, j) => {
+                  const headerProps = column.getHeaderProps({
+                    style: {
+                      minWidth: column.minWidth,
+                      width: column.width,
+                    },
+                  });
+                  const sortToggleProps = column.getSortByToggleProps ? column.getSortByToggleProps() : {};
+
+                  return (
+                    <th
+                      key={j}
+                      {...headerProps}
+                      className="px-2 py-3 text-sm border-collapse border border-gray-100 capitalize"
                     >
-                      {!column.disableSortBy && !manualSorting && (
-                        <div className="text-xs">
-                          {column.isSorted ? (
-                            column.isSortedDesc ? (
-                              <FaSortDown />
+                      {column.render("Header")}
+                      {!column.disableSortBy && (
+                        <span
+                          {...sortToggleProps}
+                          onClick={(e) => {
+                            if (sortToggleProps.onClick) sortToggleProps.onClick(e);
+                            if (onSortChange) {
+                              const isCurrentSorted = column.isSorted;
+                              const isCurrentDesc = column.isSortedDesc;
+                              if (!isCurrentSorted) {
+                                onSortChange([{ id: column.id, desc: false }]);
+                              } else if (!isCurrentDesc) {
+                                onSortChange([{ id: column.id, desc: true }]);
+                              } else {
+                                onSortChange([]);
+                              }
+                            }
+                          }}
+                          className="inline-block px-2 cursor-pointer"
+                        >
+                          <div className="text-xs">
+                            {column.isSorted ? (
+                              column.isSortedDesc ? (
+                                <FaSortDown />
+                              ) : (
+                                <FaSortUp />
+                              )
                             ) : (
-                              <FaSortUp />
-                            )
-                          ) : (
-                            <FaSort />
-                          )}
-                        </div>
+                              <FaSort />
+                            )}
+                          </div>
+                        </span>
                       )}
-                    </span>
-                  </th>
-                ))}
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
           <tbody {...getTableBodyProps()}>
-            {page.map((row, i) => {
-              prepareRow(row);
-              return (
-                <tr
-                  key={i}
-                  {...row.getRowProps()}
-                  className={`odd:bg-gray-50 ${
-                    active === i && "shadow bg-slate-100"
-                  }`}
-                >
-                  {row.cells.map((cell, i) => {
-                    return (
-                      <td
-                        key={i}
-                        {...cell.getCellProps()}
-                        className="px-4 py-3 text-sm text-custom-gray3 font-semibold border-collapse border border-gray-100"
-                      >
-                        {cell.render("Cell")}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-            {page.length === 0 && (
+            {rows && rows.length > 0 ? (
+              rows.map((row, i) => {
+                prepareRow(row);
+                return (
+                  <tr
+                    key={row.id || i}
+                    {...row.getRowProps()}
+                    className={`odd:bg-gray-50 ${
+                      active === i && "shadow bg-slate-100"
+                    }`}
+                  >
+                    {row.cells.map((cell, j) => {
+                      return (
+                        <td
+                          key={j}
+                          {...cell.getCellProps()}
+                          className="px-4 py-3 text-sm text-custom-gray3 font-semibold border-collapse border border-gray-100"
+                        >
+                          {cell.render("Cell")}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
+            ) : (
               <tr>
                 <td
                   colSpan={columns.length}
@@ -212,11 +211,11 @@ function Table({
 
       {total > 0 && (
         <div className="mt-5 flex flex-col lg:flex-row justify-center items-center gap-4 lg:gap-7 text-sm">
-          <div className="">
+          <div>
             <span className="text-sm">
               Page{" "}
               <strong>
-                {pageIndex + 1} of {pageCount || 1}
+                {pageIndex + 1} of {pageCount}
               </strong>
             </span>
           </div>
@@ -225,7 +224,7 @@ function Table({
             <span>
               Rows per page:{" "}
               <select
-                className="outline-none w-12 border border-slate-300"
+                className="outline-none w-14 border border-slate-300 rounded px-1 py-0.5"
                 value={pageSize}
                 onChange={(e) => handlePageSizeChange(Number(e.target.value))}
               >
@@ -242,14 +241,13 @@ function Table({
               <input
                 type="number"
                 min="1"
-                max={pageCount || 1}
-                className="w-10 outline-none border border-slate-500"
-                defaultValue={pageIndex + 1}
+                max={pageCount}
+                className="w-12 outline-none border border-slate-500 text-center rounded px-1 py-0.5"
+                value={pageIndex + 1}
                 onChange={(e) => {
-                  const pageNumber = e.target.value
-                    ? Number(e.target.value) - 1
-                    : 0;
-                  handlePageChange(Math.max(0, Math.min(pageNumber, pageCount - 1)));
+                  const p = e.target.value ? Number(e.target.value) - 1 : 0;
+                  const newPage = Math.max(0, Math.min(p, pageCount - 1));
+                  handlePageChange(newPage);
                 }}
               />
             </span>
@@ -257,28 +255,28 @@ function Table({
 
           <div className="flex gap-1">
             <button
-              className="p-1 text-sm rounded-sm bg-cyan-300 disabled:opacity-50"
+              className="p-1 text-sm rounded-sm bg-cyan-300 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
               onClick={() => handlePageChange(0)}
               disabled={!canPreviousPage}
             >
               <FaAngleDoubleLeft />
             </button>
             <button
-              className="bg-cyan-300 active:bg-cyan-400 px-3 py-1 rounded-sm text-sm disabled:opacity-50"
+              className="bg-cyan-300 active:bg-cyan-400 px-3 py-1 rounded-sm text-sm disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
               onClick={() => handlePageChange(pageIndex - 1)}
               disabled={!canPreviousPage}
             >
               Previous
             </button>
             <button
-              className="bg-cyan-300 active:bg-cyan-400 px-3 py-1 rounded-sm text-sm disabled:opacity-50"
+              className="bg-cyan-300 active:bg-cyan-400 px-3 py-1 rounded-sm text-sm disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
               onClick={() => handlePageChange(pageIndex + 1)}
               disabled={!canNextPage}
             >
               Next
             </button>
             <button
-              className="p-1 text-sm rounded-sm  bg-cyan-300 disabled:opacity-50"
+              className="p-1 text-sm rounded-sm bg-cyan-300 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
               onClick={() => handlePageChange(pageCount - 1)}
               disabled={!canNextPage}
             >
@@ -292,3 +290,4 @@ function Table({
 }
 
 export default Table;
+

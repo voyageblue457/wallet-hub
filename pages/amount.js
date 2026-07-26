@@ -126,7 +126,6 @@ function AmountPage() {
   // Server-side pagination state
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -171,12 +170,7 @@ function AmountPage() {
 
   const response = fetchedData?.data;
   const details = response?.data || [];
-  const totalCount = response?.total || 0;
-
-  // Update total when data loads
-  if (totalCount !== total) {
-    setTotal(totalCount);
-  }
+  const total = response?.total || 0;
 
   const columns = getAmountColumn(admin, session?.user?.username, handleCheckStatus, checkingIds);
 

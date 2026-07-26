@@ -136,11 +136,11 @@ function DynamicLinkForm({ id }) {
     }
   };
 
-  const { data: fetchedData } = useGetData(`/link/get/${id}`);
+  const { data: fetchedData } = useGetData(id ? `/link/get/${id}` : null);
   const fetchedLinks = fetchedData?.data?.users || fetchedData?.users;
 
   const { data: fetchedDynamicLinks, refetch: refetchDynamicLinks, isLoading: isLinksLoading } = useGetData(
-    `/dynamic-link/get/${id}`
+    id ? `/dynamic-link/get/${id}` : null
   );
   const dynamicLinks = fetchedDynamicLinks?.data?.data || fetchedDynamicLinks?.data;
 

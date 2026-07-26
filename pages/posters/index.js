@@ -20,7 +20,6 @@ function Posterspage() {
   // Server-side pagination state
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -40,7 +39,7 @@ function Posterspage() {
   }, [pageIndex, pageSize, sortBy, globalFilter]);
 
   const query = buildQuery();
-  const route = `/all/poster/${id}?${query}`;
+  const route = id ? `/all/poster/${id}?${query}` : null;
 
   const {
     data: fetchedData,
@@ -48,13 +47,9 @@ function Posterspage() {
     isError,
   } = useGetData(route);
 
-  const userData = fetchedData?.data?.posters || [];
-  const totalCount = fetchedData?.data?.total || 0;
-
-  // Update total when data loads
-  if (totalCount !== total) {
-    setTotal(totalCount);
-  }
+  const postersResponse = fetchedData?.data?.data || fetchedData?.data || {};
+  const userData = postersResponse?.posters || [];
+  const total = postersResponse?.total || 0;
 
   const handlePageChange = useCallback((newPageIndex) => {
     setPageIndex(newPageIndex);

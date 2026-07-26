@@ -140,7 +140,7 @@ function PosterDynamicLinkForm({ id, assignedLinks, refetchDynamicLinks: parentR
     data: fetchedDynamicLinks,
     refetch: refetchDynamicLinks,
     isLoading: isLinksLoading
-  } = useGetData(`/dynamic-link/get/${id}`);
+  } = useGetData(id ? `/dynamic-link/get/${id}` : null);
 
   const dynamicLinks = fetchedDynamicLinks?.data?.data || fetchedDynamicLinks?.data;
 

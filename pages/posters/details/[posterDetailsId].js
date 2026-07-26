@@ -16,7 +16,6 @@ function PosterDetailsPage() {
   // Server-side pagination state
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const [total, setTotal] = useState(0);
   const [sortBy, setSortBy] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -36,14 +35,13 @@ function PosterDetailsPage() {
   }, [pageIndex, pageSize, sortBy, globalFilter]);
 
   const apiQuery = buildQuery();
-  const route = `/posters/details/${posterDetailsId}?${apiQuery}`;
+  const route = posterDetailsId ? `/posters/details/${posterDetailsId}?${apiQuery}` : null;
 
   const { data, isLoading } = useGetData(route);
 
-  console.log("poster collection", data);
-
-  const { _doc, details, total: totalCount } = data ? data?.data : { _doc: {}, details: [], total: 0 };
-  const { username, password, posterId, links, tag, root } = _doc || {};
+  const posterData = data?.data?.data || data?.data || {};
+  const { _doc, details = [], total = 0 } = posterData;
+  const { username, password, posterId, links, tag, root } = _doc || posterData || {};
 
   let totalAmount = 0;
   let pendingAmount = 0;
@@ -62,11 +60,6 @@ function PosterDetailsPage() {
         }
       }
     });
-  }
-
-  // Update total when data loads
-  if (totalCount !== total) {
-    setTotal(totalCount);
   }
 
   const remainingAmount = totalAmount - paidAmount;
