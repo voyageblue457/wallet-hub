@@ -89,7 +89,7 @@ const getAmountColumn = (admin, posterUsername, handleCheckStatus, checkingIds) 
       accessor: "_id",
       width: "auto",
       Cell: ({ row }) => {
-        const hasInvoice = !!row.original.rHash;
+        const hasInvoice = !!row.original.rHash || !!row.original.lightningInvoice;
         const isChecking = checkingIds && checkingIds[row.original._id];
         const statusVal = row.original.status;
         const isSuccess = statusVal === true || statusVal === "true";
