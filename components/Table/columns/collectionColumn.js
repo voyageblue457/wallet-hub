@@ -30,6 +30,11 @@ export const collectionColumn = [
     Header: "website",
     accessor: "site",
     width: "auto",
+    Cell: ({ value }) => (
+      <span className="break-all font-mono text-xs font-medium text-custom-blue5 select-all">
+        {value || "-"}
+      </span>
+    ),
   },
   {
     Header: "Amount",

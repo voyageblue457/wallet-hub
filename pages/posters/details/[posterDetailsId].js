@@ -41,7 +41,9 @@ function PosterDetailsPage() {
 
   const posterData = data?.data?.data || data?.data || {};
   const { _doc, details = [], total = 0 } = posterData;
-  const { username, password, posterId, links, tag, root } = _doc || posterData || {};
+  const posterObj = _doc || posterData || {};
+  const { username, password, posterId, tag, root } = posterObj;
+  const links = posterData.links || posterObj.links || [];
 
   let totalAmount = 0;
   let pendingAmount = 0;
