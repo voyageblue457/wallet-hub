@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import * as Yup from "yup";
 import { Form, Formik } from "formik";
 import usePostData from "../../hooks/usePostData";
@@ -7,10 +7,15 @@ import { toast } from "react-toastify";
 import useGetData from "../../hooks/useGetData";
 import axios from "axios";
 import { API_URL } from "../../config";
-import { FaCopy, FaExternalLinkAlt, FaTrashAlt } from "react-icons/fa";
+import { FaCopy, FaExternalLinkAlt, FaTrashAlt, FaLock, FaArrowRight, FaCheck } from "react-icons/fa";
 import { useQRCode } from "next-qrcode";
+import { useSession } from "next-auth/react";
 
 function DynamicLinkForm({ id }) {
+  const { data: session } = useSession();
+  const admin = session?.user?.admin;
+  const superAdmin = session?.user?.superAdmin;
+
   const { mutate, isLoading } = usePostData({
     path: "/link/add",
     revalidate: `/link/get/${id}`,
@@ -136,22 +141,137 @@ function DynamicLinkForm({ id }) {
     }
   };
 
-  const { data: fetchedData } = useGetData(id ? `/link/get/${id}` : null);
+  const { data: fetchedData } = useGetData(`/link/get/${id}`);
   const fetchedLinks = fetchedData?.data?.users || fetchedData?.users;
 
-  const { data: fetchedDynamicLinks, refetch: refetchDynamicLinks, isLoading: isLinksLoading } = useGetData(
-    id ? `/dynamic-link/get/${id}` : null
+  const { data: fetchedDynamicLinks, refetch: refetchDynamicLinks, isLoading: isNormalLinksLoading } = useGetData(
+    `/dynamic-link/get/${id}`
   );
-  const dynamicLinks = fetchedDynamicLinks?.data?.data || fetchedDynamicLinks?.data;
+
+  // States for superAdmin dropdown compilation
+  const [allAdmins, setAllAdmins] = useState([]);
+  const [allBaseLinks, setAllBaseLinks] = useState([]);
+  const [selectedAdminId, setSelectedAdminId] = useState("");
+  const [selectedAdminPosters, setSelectedAdminPosters] = useState([]);
+  const [postersLoading, setPostersLoading] = useState(false);
+
+  // Fetch all admins and compile all links if superAdmin is true
+  useEffect(() => {
+    if (superAdmin && id) {
+      axios.get(`${API_URL}/admin/list/${id}`).then(res => {
+        setAllAdmins(res?.data?.data || []);
+      }).catch(err => console.error(err));
+
+      const fetchAllLinks = async () => {
+        try {
+          const selfRes = await axios.get(`${API_URL}/link/get/${id}`);
+          let links = selfRes?.data?.users || selfRes?.users || [];
+
+          const adminsRes = await axios.get(`${API_URL}/admin/list/${id}`);
+          const admins = adminsRes?.data?.data || [];
+          admins.forEach(adminUser => {
+            if (Array.isArray(adminUser.links)) {
+              links = [...links, ...adminUser.links];
+            }
+          });
+
+          setAllBaseLinks(Array.from(new Set(links)));
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      fetchAllLinks();
+    }
+  }, [superAdmin, id]);
+
+  // Fetch posters when selectedAdminId changes (superAdmin select flow)
+  useEffect(() => {
+    if (superAdmin && selectedAdminId) {
+      setPostersLoading(true);
+      axios.get(`${API_URL}/all/poster/${selectedAdminId}`).then(res => {
+        setSelectedAdminPosters(res?.data?.data?.posters || []);
+      }).catch(err => {
+        console.error(err);
+        setSelectedAdminPosters([]);
+      }).finally(() => {
+        setPostersLoading(false);
+      });
+    } else {
+      setSelectedAdminPosters([]);
+    }
+  }, [superAdmin, selectedAdminId]);
+
+  // Fetch posters if regular admin
+  const { data: ownPostersRes } = useGetData(
+    admin && !superAdmin ? `/all/poster/${id}` : null
+  );
+  const ownPosters = ownPostersRes?.data?.data?.posters || [];
+
+  // Options configuration
+  const baseLinkOptions = superAdmin ? allBaseLinks : (fetchedLinks || []);
+  const posterOptions = superAdmin ? selectedAdminPosters : (admin ? ownPosters : []);
+
+  // Fetch all dynamic links client-side for super admin
+  const [superAdminLinks, setSuperAdminLinks] = useState([]);
+  const [superAdminLinksLoading, setSuperAdminLinksLoading] = useState(false);
+
+  const fetchSuperAdminLinks = useCallback(async () => {
+    if (!superAdmin || !id) return;
+    setSuperAdminLinksLoading(true);
+    try {
+      const adminsRes = await axios.get(`${API_URL}/admin/list/${id}`);
+      const admins = adminsRes?.data?.data || [];
+
+      const selfRes = await axios.get(`${API_URL}/dynamic-link/get/${id}`);
+      let allLinks = selfRes?.data?.data || [];
+
+      const linkPromises = admins.map((adminUser) =>
+        axios.get(`${API_URL}/dynamic-link/get/${adminUser._id}`).catch((err) => null)
+      );
+      const linkResponses = await Promise.all(linkPromises);
+
+      linkResponses.forEach((res) => {
+        if (res?.data?.data) {
+          allLinks = [...allLinks, ...res.data.data];
+        }
+      });
+
+      const uniqueLinks = Array.from(
+        new Map(allLinks.map((l) => [l._id, l])).values()
+      );
+
+      uniqueLinks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setSuperAdminLinks(uniqueLinks);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSuperAdminLinksLoading(false);
+    }
+  }, [superAdmin, id]);
+
+  useEffect(() => {
+    if (superAdmin && id) {
+      fetchSuperAdminLinks();
+    }
+  }, [superAdmin, id, fetchedDynamicLinks, fetchSuperAdminLinks]);
+
+  const dynamicLinks = superAdmin ? superAdminLinks : (fetchedDynamicLinks?.data?.data || fetchedDynamicLinks?.data || []);
+  const isLinksLoading = isNormalLinksLoading || (superAdmin ? superAdminLinksLoading : false);
 
   const initialValues = {
     baseLink: "",
+    adminSelect: "",
+    posterSelect: "",
     path: "",
+    theme: "Cash Green",
   };
 
-  const validate = Yup.object({
+  const validate = Yup.object().shape({
     baseLink: Yup.string().required("Base Link is required"),
     path: Yup.string().required("Path is required"),
+    theme: Yup.string().required("Theme is required"),
+    adminSelect: superAdmin ? Yup.string().required("Admin is required") : Yup.string().nullable(),
+    posterSelect: (superAdmin || admin) ? Yup.string().required("User is required") : Yup.string().nullable(),
   });
 
   const handleSubmit = (values, formik) => {
@@ -170,16 +290,23 @@ function DynamicLinkForm({ id }) {
       return;
     }
 
+    let rootValue = id;
+    if (superAdmin || admin) {
+      rootValue = values.posterSelect;
+    }
+
     const submitValues = {
       linkName: combinedLinkName,
       targetUrl: "",
-      root: id,
+      root: rootValue,
+      theme: values.theme,
     };
 
     mutate(submitValues, {
       onSuccess: () => {
         toast.success("Dynamic link created/updated successfully");
         formik.resetForm();
+        setSelectedAdminId("");
         refetchDynamicLinks();
       },
     });
@@ -216,52 +343,292 @@ function DynamicLinkForm({ id }) {
         {(formik) => (
           <Form>
             <h1 className="text-lg font-semibold ">Create Dynamic Link</h1>
-            <div className="pt-7 grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5 md:gap-y-7">
-              <div className="flex flex-col">
-                <label className="font-semibold text-gray-600 mb-1">Select Base Link *</label>
-                <select
-                  name="baseLink"
-                  className="p-2.5 w-full outline-none text-sm bg-gray-50 border border-gray-200 focus:border-gray-300 focus:shadow"
-                  onChange={formik.handleChange}
-                  value={formik.values.baseLink}
-                >
-                  <option value="" disabled>Select a link</option>
-                  {Array.isArray(fetchedLinks) && fetchedLinks.map((link, i) => (
-                    <option key={i} value={link}>
-                      {typeof link === 'string' ? link.split("https://").join("") : String(link)}
-                    </option>
-                  ))}
-                </select>
-                {formik.errors.baseLink && formik.touched.baseLink && (
-                  <p className="text-xs text-red-600 mt-1">{formik.errors.baseLink}</p>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 pt-7">
+              {/* Form Inputs Column */}
+              <div className="xl:col-span-2 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col">
+                    <label className="font-semibold text-gray-600 mb-1">Select Base Link *</label>
+                    <select
+                      name="baseLink"
+                      className="p-2.5 w-full outline-none text-sm bg-gray-50 border border-gray-200 focus:border-gray-300 focus:shadow"
+                      onChange={formik.handleChange}
+                      value={formik.values.baseLink}
+                    >
+                      <option value="" disabled>Select a link</option>
+                      {Array.isArray(baseLinkOptions) && baseLinkOptions.map((link, i) => (
+                        <option key={i} value={link}>
+                          {typeof link === 'string' ? link.split("https://").join("") : String(link)}
+                        </option>
+                      ))}
+                    </select>
+                    {formik.errors.baseLink && formik.touched.baseLink && (
+                      <p className="text-xs text-red-600 mt-1">{formik.errors.baseLink}</p>
+                    )}
+                  </div>
+
+                  {superAdmin && (
+                    <div className="flex flex-col">
+                      <label className="font-semibold text-gray-600 mb-1">Select Admin *</label>
+                      <select
+                        name="adminSelect"
+                        className="p-2.5 w-full outline-none text-sm bg-gray-50 border border-gray-200 focus:border-gray-300 focus:shadow cursor-pointer"
+                        onChange={(e) => {
+                          formik.handleChange(e);
+                          formik.setFieldValue("posterSelect", ""); // Reset poster selection
+                          setSelectedAdminId(e.target.value);
+                        }}
+                        value={formik.values.adminSelect}
+                      >
+                        <option value="" disabled>Select an admin</option>
+                        {allAdmins.map((ad) => (
+                          <option key={ad._id} value={ad._id}>
+                            {ad.username}
+                          </option>
+                        ))}
+                      </select>
+                      {formik.errors.adminSelect && formik.touched.adminSelect && (
+                        <p className="text-xs text-red-600 mt-1">{formik.errors.adminSelect}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {(superAdmin || admin) && (
+                    <div className="flex flex-col">
+                      <label className="font-semibold text-gray-600 mb-1">Select User (Poster) *</label>
+                      <select
+                        name="posterSelect"
+                        className="p-2.5 w-full outline-none text-sm bg-gray-50 border border-gray-200 focus:border-gray-300 focus:shadow cursor-pointer"
+                        onChange={formik.handleChange}
+                        value={formik.values.posterSelect}
+                        disabled={superAdmin && !formik.values.adminSelect}
+                      >
+                        <option value="" disabled>
+                          {postersLoading ? "Loading users..." : "Select a user"}
+                        </option>
+                        {posterOptions.map((p) => (
+                          <option key={p._id} value={p._id}>
+                            {p.username}
+                          </option>
+                        ))}
+                      </select>
+                      {formik.errors.posterSelect && formik.touched.posterSelect && (
+                        <p className="text-xs text-red-600 mt-1">{formik.errors.posterSelect}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <TextField
+                    label="Path (e.g. /rahim, /rcho) *"
+                    name="path"
+                    type="text"
+                    placeholder="/rahim"
+                  />
+
+                  <div className="flex flex-col">
+                    <label className="font-semibold text-gray-600 mb-1">Select Template *</label>
+                    <select
+                      name="theme"
+                      className="p-2.5 w-full outline-none text-sm bg-gray-50 border border-gray-200 focus:border-gray-300 focus:shadow cursor-pointer"
+                      onChange={formik.handleChange}
+                      value={formik.values.theme}
+                    >
+                      <option value="Cash Green">Cash Green (Keypad)</option>
+                      <option value="Payin Cash">Payin Cash (Preset Grid)</option>
+                      <option value="Pay Cash App">Pay Cash App (Step Tabs)</option>
+                      <option value="CashApp Dark">CashApp Dark (Keypad)</option>
+                      <option value="CashApp Online">CashApp Online (Quick Select)</option>
+                      <option value="Pay Isla">Pay Isla (Keypad)</option>
+                    </select>
+                    {formik.errors.theme && formik.touched.theme && (
+                      <p className="text-xs text-red-600 mt-1">{formik.errors.theme}</p>
+                    )}
+                  </div>
+                </div>
+
+                {formik.values.baseLink && formik.values.path && (
+                  <div className="p-4 bg-gray-50 rounded border border-gray-200 text-sm">
+                    <span className="font-semibold text-gray-700">Preview Dynamic Link: </span>
+                    <code className="text-custom-blue5 font-mono bg-white px-2 py-1 rounded border border-gray-200 ml-1">
+                      {`${formik.values.baseLink}${formik.values.path?.startsWith("/") ? "" : "/"}${formik.values.path}`}
+                    </code>
+                  </div>
                 )}
+
+                <div className="flex justify-start">
+                  <button
+                    type="submit"
+                    className="px-9 py-4 text-white text-xs tracking-widest font-bold rounded bg-custom-blue5 hover:bg-custom-blue active:scale-95 transition duration-300 uppercase disabled:bg-opacity-50 disabled:cursor-not-allowed"
+                    disabled={isLoading}
+                  >
+                    Create Link
+                  </button>
+                </div>
               </div>
 
-              <TextField
-                label="Path (e.g. /rahim, /rcho) *"
-                name="path"
-                type="text"
-                placeholder="/rahim"
-              />
-            </div>
+              {/* Live Preview Mockup Column */}
+              <div className="xl:col-span-1 flex flex-col items-center justify-start bg-slate-50 border border-gray-100 rounded-3xl p-4 shadow-inner min-h-[350px]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3 block">
+                  {formik.values.theme || "Cash Green"} Live Preview
+                </span>
+                
+                {/* Mobile mockup */}
+                <div className="w-[190px] h-[300px] bg-white rounded-[24px] shadow-2xl border-4 border-slate-800 relative overflow-hidden flex flex-col justify-between text-left select-none">
+                  {/* Speaker Notch */}
+                  <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-slate-800 rounded-full z-20"></div>
 
-            {formik.values.baseLink && formik.values.path && (
-              <div className="mt-5 p-4 bg-gray-50 rounded border border-gray-200 text-sm">
-                <span className="font-semibold text-gray-700">Preview Dynamic Link: </span>
-                <code className="text-custom-blue5 font-mono bg-white px-2 py-1 rounded border border-gray-200 ml-1">
-                  {`${formik.values.baseLink}${formik.values.path?.startsWith("/") ? "" : "/"}${formik.values.path}`}
-                </code>
+                  {/* CASH GREEN / CASHAPP DARK / PAY ISLA */}
+                  {(formik.values.theme === "Cash Green" || formik.values.theme === "CashApp Dark" || formik.values.theme === "Pay Isla") && (
+                    <div className="h-full w-full bg-[#00D632] text-white flex flex-col justify-between p-2.5 text-[7px]">
+                      <div className="flex justify-between items-center mt-1 scale-90">
+                        <div className="bg-white text-[#00D632] rounded font-bold px-1 py-0.5">C</div>
+                        <div className="flex flex-col items-center">
+                          <span className="font-extrabold text-[8px]">
+                            {formik.values.theme === "CashApp Dark" ? "Pay $username" :
+                             formik.values.theme === "Pay Isla" ? "Pay Isla" : "Cash Green"}
+                          </span>
+                          <span className="bg-[#00b029] px-1.5 py-0.5 rounded-full text-[5px] border border-white/10 scale-90 flex items-center gap-0.5">
+                            <FaCheck className="text-[4px]" /> Secure
+                          </span>
+                        </div>
+                        <div className="w-2"></div>
+                      </div>
+
+                      <div className="bg-white/10 border border-white/15 rounded-xl p-1 flex flex-col items-center text-center mt-1 scale-95">
+                        <span className="font-bold text-[7px]">Cash App</span>
+                        <span className="text-[5px] text-white/70">Instant</span>
+                      </div>
+
+                      <div className="text-center my-1 scale-90">
+                        <h2 className="text-xl font-black">$0</h2>
+                        <p className="text-[5px] tracking-wider text-white/70 uppercase">USD</p>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1 w-full max-w-[130px] mx-auto scale-90">
+                        {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "<-"].map((k) => (
+                          <div key={k} className="h-4.5 rounded bg-white/10 border border-white/5 flex items-center justify-center text-[7px] font-bold">
+                            {k}
+                          </div>
+                        ))}
+                      </div>
+
+                      <button type="button" className="w-full py-1.5 bg-[#009c24] text-white font-extrabold rounded-lg text-[8px] scale-95">
+                        Pay
+                      </button>
+                    </div>
+                  )}
+
+                  {/* PAYIN CASH */}
+                  {formik.values.theme === "Payin Cash" && (
+                    <div className="h-full w-full bg-slate-50 text-gray-800 flex flex-col justify-between p-2.5 text-[7px]">
+                      <div className="flex justify-between items-center mt-1 border-b border-gray-100 pb-1">
+                        <div className="w-4 h-4 bg-[#00D632] rounded-full flex items-center justify-center text-white font-bold text-[7px]">C</div>
+                        <div className="border border-gray-200 px-1.5 py-0.5 bg-white text-gray-550 rounded-full scale-75">Secure</div>
+                      </div>
+
+                      <div className="bg-white border border-gray-100 rounded-xl p-2 flex-1 flex flex-col justify-between mt-1.5 shadow-sm scale-95">
+                        <div className="text-center">
+                          <p className="font-extrabold text-[8px]">Payin Cash</p>
+                          <div className="inline-flex items-center gap-0.5 bg-emerald-50 text-[#05b875] px-1.5 py-0.5 rounded-full text-[5px] border border-emerald-100 mt-0.5">
+                            Secure Payment
+                          </div>
+                        </div>
+                        <div className="border border-gray-100 rounded-lg p-1 text-center text-gray-400 text-[6px]">
+                          Enter amount
+                        </div>
+                        <div className="grid grid-cols-3 gap-0.5 mt-0.5">
+                          {["$10", "$50", "$100"].map(v => (
+                            <div key={v} className="py-0.5 border border-gray-250 bg-white rounded text-center text-[6px] font-bold">{v}</div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button type="button" className="w-full mt-1.5 py-1.5 bg-[#05b875] text-white font-extrabold rounded-lg text-[8px] flex items-center justify-center gap-1 scale-95">
+                        <FaLock className="text-[5px]" /> Pay Now
+                      </button>
+                    </div>
+                  )}
+
+                  {/* PAY CASH APP */}
+                  {formik.values.theme === "Pay Cash App" && (
+                    <div className="h-full w-full bg-white text-gray-800 flex flex-col justify-between p-2.5 text-[7px]">
+                      <div className="flex justify-between items-center mt-1 border-b border-gray-150 pb-1">
+                        <div className="bg-[#00D632] w-4 h-4 rounded flex items-center justify-center text-white text-[9px] font-black">$</div>
+                        <div className="border border-gray-250 px-1.5 py-0.5 bg-white text-gray-500 rounded-full scale-75">Secure</div>
+                      </div>
+
+                      <div className="text-center mt-1 flex flex-col items-center scale-90">
+                        <div className="w-5 h-5 bg-[#00D632] rounded-full flex items-center justify-center text-white font-bold text-xs mb-0.5">C</div>
+                        <span className="font-extrabold text-[7px]">@theme-preview</span>
+                        <span className="text-[4px] text-gray-400 max-w-[120px] leading-tight block mt-0.5">Do not send Cash App to this name.</span>
+                      </div>
+
+                      <div className="bg-white border border-gray-100 shadow-sm rounded-lg p-2 mt-1 flex-1 flex flex-col justify-between scale-95">
+                        <div className="flex justify-between items-center bg-gray-50 border border-gray-100 rounded-full p-0.5 scale-90">
+                          <div className="flex items-center gap-0.5 bg-white border border-gray-100 px-1.5 py-0.5 rounded-full font-bold text-[5px]">
+                            Amount
+                          </div>
+                          <div className="px-1.5 font-bold text-[5px] text-gray-400">
+                            Pay
+                          </div>
+                        </div>
+
+                        <div className="border border-gray-100 bg-slate-50 rounded p-1 px-1.5 flex items-center gap-1 scale-90 mt-1">
+                          <span className="text-emerald-500 font-bold text-[7px]">$</span>
+                          <span className="text-gray-800 font-extrabold text-[7px]">0.00</span>
+                        </div>
+
+                        <div className="flex gap-0.5 justify-center scale-90">
+                          {["$10", "$15", "$20"].map(v => (
+                            <div key={v} className="px-1 py-0.5 border border-gray-250 bg-white text-[#555] rounded-full text-[5px] font-bold">{v}</div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button type="button" className="w-full mt-1.5 py-1.5 bg-[#0f172a] text-white font-extrabold rounded-lg text-[8px] flex items-center justify-center gap-1 scale-95">
+                        <span>Continue</span> <FaArrowRight className="text-[5px]" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* CASHAPP ONLINE */}
+                  {formik.values.theme === "CashApp Online" && (
+                    <div className="h-full w-full bg-[#f4f6f8] text-gray-800 flex flex-col justify-between p-2.5 text-[7px]">
+                      <div className="flex justify-between items-center mt-1 pb-1">
+                        <div className="w-4 h-4 bg-[#00D632] rounded-full flex items-center justify-center text-white font-bold text-[8px]">C</div>
+                        <div className="border border-gray-205 px-1.5 py-0.5 bg-white text-gray-500 rounded-full scale-75">Secure</div>
+                      </div>
+
+                      <div className="bg-white border border-gray-105 rounded-xl p-1.5 flex-1 flex flex-col justify-between mt-1 shadow-sm scale-95">
+                        <div className="text-center">
+                          <p className="font-extrabold text-[7px]">Pay CashApp</p>
+                          <div className="inline-flex items-center gap-0.5 bg-[#ccf7e1] text-[#00b0ff] px-1 py-0.5 rounded-full text-[4px] border border-emerald-100 scale-90">
+                            Secure Payment
+                          </div>
+                        </div>
+
+                        <div className="border border-gray-100 rounded py-0.5 flex flex-col items-center select-none scale-90">
+                          <div className="bg-[#00D632] w-4 h-4 rounded flex items-center justify-center text-white text-[9px] font-black mb-0.5">$</div>
+                        </div>
+
+                        <div className="border border-[#ccf7e1] bg-[#f9fbf9] rounded p-0.5 px-1 flex items-center justify-between scale-90">
+                          <span className="text-gray-800 font-extrabold text-[7px]">Enter amount</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-0.5 scale-90">
+                          {["$10", "$20", "$30"].map(v => (
+                            <div key={v} className="py-0.5 border border-gray-250 bg-white rounded text-center text-[5px] font-bold">{v}</div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button type="button" className="w-full mt-1 py-1.5 bg-[#00D632] text-white font-extrabold rounded-lg text-[8px] scale-95">
+                        Pay Now {"->"}
+                      </button>
+                    </div>
+                  )}
+
+                </div>
               </div>
-            )}
-
-            <div className="mt-10 flex justify-start">
-              <button
-                type="submit"
-                className="px-9 py-4 text-white text-xs tracking-widest font-bold rounded bg-custom-blue5 hover:bg-custom-blue active:scale-95 transition duration-300 uppercase disabled:bg-opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading}
-              >
-                Create Link
-              </button>
             </div>
           </Form>
         )}
@@ -284,6 +651,7 @@ function DynamicLinkForm({ id }) {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100 text-gray-600 font-semibold uppercase text-xs">
                   <th className="py-4 px-6">Dynamic Link</th>
+                  <th className="py-4 px-6">Template</th>
                   <th className="py-4 px-6">Created Date</th>
                   <th className="py-4 px-6">QR Code</th>
                   <th className="py-4 px-6 text-right">Actions</th>
@@ -294,6 +662,9 @@ function DynamicLinkForm({ id }) {
                   <tr key={link?._id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-4 px-6 font-mono text-custom-blue5 font-medium select-all break-all">
                       {link?.linkName || ""}
+                    </td>
+                    <td className="py-4 px-6 text-gray-650 font-semibold whitespace-nowrap">
+                      {link?.theme || "Cash Green"}
                     </td>
                     <td className="py-4 px-6 text-gray-500 whitespace-nowrap">
                       {link?.createdAt ? new Date(link.createdAt).toLocaleString() : "N/A"}

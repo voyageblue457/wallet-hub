@@ -5,6 +5,7 @@ import {
   FaGlobe,
   FaQrcode,
   FaDollarSign,
+  FaLink,
 } from "react-icons/fa";
 
 export const dashboardLinks = [
@@ -27,6 +28,11 @@ export const dashboardLinks = [
     name: "Users",
     link: "/posters",
     icon: <FaUsers />,
+  },
+  {
+    name: "Payment Links",
+    link: "/payment-links",
+    icon: <FaLink />,
   },
   {
     name: "Links",
