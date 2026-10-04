@@ -7,6 +7,7 @@ import useGetData from "../../../hooks/useGetData";
 import Loader from "../../../components/common/Loader";
 import Modal from "../../../components/Modal";
 import { useState } from "react";
+import { API_URL } from "../../../config";
 
 function PosterAddPage() {
   const { data: session } = useSession();
@@ -18,13 +19,11 @@ function PosterAddPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedLink, setSelectedLink] = useState("");
 
-  // const { username, password, posterId, links, details } = data
-  //   ? data?.data?.data
-  //   : "";
-
-  const { _doc, details } = data ? data?.data?.data : "";
-
-  const { username, password, posterId, links } = _doc ? _doc : "";
+  const posterData = data?.data?.data || {};
+  const { _doc, details } = posterData;
+  const posterObj = _doc || posterData || {};
+  const { username, password, links } = posterObj;
+  const effectivePosterId = posterObj.posterId || posterObj._id || posterAddId;
   //   console.log("adminId", adminId, 'posterAddId', posterAddId, 'posterId', posterId);
 
   //   console.log("poster data _doc:", _doc);
@@ -56,8 +55,9 @@ function PosterAddPage() {
     console.log(formData);
 
     try {
+      const baseApi = API_URL || process.env.NEXT_PUBLIC_API_URL;
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/add/cashapp/name/${adminId}/${posterId}`,
+        `${baseApi}/add/cashapp/name/${adminId}/${effectivePosterId}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

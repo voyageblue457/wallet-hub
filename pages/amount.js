@@ -18,12 +18,22 @@ const getAmountColumn = (admin, posterUsername, handleCheckStatus, checkingIds) 
     },
     admin && {
       Header: "Username",
-      accessor: (row) => row?.root?.username || (admin ? "Admin" : (posterUsername || "Admin")),
+      accessor: (row) =>
+        row?.root?.username ||
+        (row?.poster && row?.poster !== "undefined" && row?.poster !== "null"
+          ? row.poster
+          : admin
+          ? "Admin"
+          : posterUsername || "Admin"),
       id: "username",
       width: "auto",
       Cell: ({ row, value }) => {
-        const posterIdVal = row.original?.root?._id || row.original?.poster || row.original?.posterId;
-        if (admin && posterIdVal) {
+        const posterIdVal =
+          row.original?.root?._id ||
+          row.original?.root?.posterId ||
+          row.original?.poster ||
+          row.original?.posterId;
+        if (admin && posterIdVal && value && value !== "Admin") {
           return (
             <Link href={`/posters/details/${posterIdVal}`}>
               <span className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-semibold">
@@ -33,7 +43,7 @@ const getAmountColumn = (admin, posterUsername, handleCheckStatus, checkingIds) 
           );
         }
         return <span>{value}</span>;
-      }
+      },
     },
     {
       Header: "Amount",

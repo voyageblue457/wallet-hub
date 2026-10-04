@@ -17,12 +17,20 @@ const getTableColumns = (admin, handleCheckStatus, checkingIds, handleViewQR) =>
   const columns = [
     {
       Header: "Creator",
-      accessor: (row) => row.root?.username || "Admin",
+      accessor: (row) =>
+        row.root?.username ||
+        (row.poster && row.poster !== "undefined" && row.poster !== "null"
+          ? row.poster
+          : "Admin"),
       id: "creator",
       width: "auto",
       Cell: ({ row, value }) => {
-        const posterIdVal = row.original.root?._id || row.original.poster || row.original.posterId;
-        if (admin && posterIdVal) {
+        const posterIdVal =
+          row.original.root?._id ||
+          row.original.root?.posterId ||
+          row.original.poster ||
+          row.original.posterId;
+        if (admin && posterIdVal && value && value !== "Admin") {
           return (
             <Link href={`/posters/details/${posterIdVal}`}>
               <span className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-semibold">
@@ -32,7 +40,7 @@ const getTableColumns = (admin, handleCheckStatus, checkingIds, handleViewQR) =>
           );
         }
         return <span>{value}</span>;
-      }
+      },
     },
     {
       Header: "Amount",
