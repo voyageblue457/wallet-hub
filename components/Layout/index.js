@@ -31,7 +31,9 @@ function Layout({ children, heading }) {
 
   const adminId = data?.user.adminId;
 
-  const id = admin ? data?.user?.adminId : (data?.user?.posterId || data?.user?.id);
+  const id = admin
+    ? data?.user?.adminId
+    : (data?.user?.posterId || data?.user?.id || data?.user?.username);
   const { data: amountSummary } = useGetData(
     id ? `/amount/summary/${id}` : null
   );
