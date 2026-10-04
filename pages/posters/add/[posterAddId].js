@@ -130,11 +130,9 @@ function PosterAddPage() {
                   {links &&
                     links?.map(
                       (link, i) =>
-                        link &&
-                        new URL(link).origin ===
-                          "https://www.meetcall.live" || "https://paycash-online.vercel.app" && (
-                          <div className="flex gap-5 items-center flex-wrap">
-                            <p key={i}>{link}</p>
+                        link ? (
+                          <div key={i} className="flex gap-5 items-center flex-wrap">
+                            <p className="break-all">{link}</p>
                             <button
                               className="bg-green-600 text-xs text-white font-semibold px-2 py-1 rounded"
                               onClick={() => handleAddClick(link)}
@@ -154,7 +152,7 @@ function PosterAddPage() {
                               DELETE
                             </button>
                           </div>
-                        )
+                        ) : null
                     )}
                 </div>
               </div>

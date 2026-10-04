@@ -290,16 +290,33 @@ function DynamicLinkForm({ id }) {
       return;
     }
 
-    let rootValue = id;
-    if (superAdmin || admin) {
-      rootValue = values.posterSelect;
+    const selectedPoster = posterOptions.find(
+      (p) =>
+        p._id === values.posterSelect ||
+        p.username === values.posterSelect ||
+        p.posterId === values.posterSelect
+    );
+
+    if ((superAdmin || admin) && !selectedPoster && !values.posterSelect) {
+      toast.error("Please select a user (poster)");
+      return;
     }
+
+    const rootValue = selectedPoster?._id || values.posterSelect || id;
+    const posterUsername = selectedPoster?.username || "";
+    const posterIdVal = selectedPoster?.posterId || selectedPoster?._id || values.posterSelect || "";
+    const domainVal = base.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
     const submitValues = {
       linkName: combinedLinkName,
       targetUrl: "",
       root: rootValue,
       theme: values.theme,
+      username: posterUsername,
+      posterId: posterIdVal,
+      domain: domainVal,
+      title: posterUsername ? `${posterUsername} on Cash App` : "Cash App",
+      brandName: "Cash App",
     };
 
     mutate(submitValues, {
@@ -651,6 +668,7 @@ function DynamicLinkForm({ id }) {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100 text-gray-600 font-semibold uppercase text-xs">
                   <th className="py-4 px-6">Dynamic Link</th>
+                  <th className="py-4 px-6">User</th>
                   <th className="py-4 px-6">Template</th>
                   <th className="py-4 px-6">Created Date</th>
                   <th className="py-4 px-6">QR Code</th>
@@ -662,6 +680,9 @@ function DynamicLinkForm({ id }) {
                   <tr key={link?._id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-4 px-6 font-mono text-custom-blue5 font-medium select-all break-all">
                       {link?.linkName || ""}
+                    </td>
+                    <td className="py-4 px-6 text-gray-800 font-semibold whitespace-nowrap">
+                      {link?.username || link?.ownerName || (link?.root?.username) || "-"}
                     </td>
                     <td className="py-4 px-6 text-gray-650 font-semibold whitespace-nowrap">
                       {link?.theme || "Cash Green"}
